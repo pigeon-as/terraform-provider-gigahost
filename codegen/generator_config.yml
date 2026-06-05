@@ -1,0 +1,16 @@
+# Configuration for tfplugingen-openapi. It maps operations from the
+# hand-authored OpenAPI spec (gigahost.openapi.yml) to a Terraform provider
+# code specification (provider-code-spec.json), which tfplugingen-framework
+# then turns into Plugin Framework schemas under ../internal.
+#
+# Scope: everything generated lives here — currently just the read-only
+# `account` data source. The provider configuration schema is hand-written (no
+# schema_ref here) so it can support environment-variable fallback and validation.
+provider:
+  name: gigahost
+
+data_sources:
+  account:
+    read:
+      path: /account
+      method: GET

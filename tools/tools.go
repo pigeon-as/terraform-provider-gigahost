@@ -1,22 +1,21 @@
-// Copyright IBM Corp. 2021, 2025
-// SPDX-License-Identifier: MPL-2.0
-
 //go:build generate
 
 package tools
 
 import (
-	_ "github.com/hashicorp/copywrite"
+	_ "github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework"
+	_ "github.com/hashicorp/terraform-plugin-codegen-openapi/cmd/tfplugingen-openapi"
 	_ "github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs"
 )
 
-// Generate copyright headers
-//go:generate go run github.com/hashicorp/copywrite headers -d .. --config ../.copywrite.hcl
+// Generate the provider code specification from the OpenAPI spec.
+//go:generate go run github.com/hashicorp/terraform-plugin-codegen-openapi/cmd/tfplugingen-openapi generate --config ../codegen/generator_config.yml --output ../codegen/provider-code-spec.json ../codegen/gigahost.openapi.yml
 
-// Format Terraform code for use in documentation.
-// If you do not have Terraform installed, you can remove the formatting command, but it is suggested
-// to ensure the documentation is formatted properly.
+// Generate Terraform Plugin Framework data source schemas from the spec.
+//go:generate go run github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework generate data-sources --input ../codegen/provider-code-spec.json --output ../internal
+
+// Format the example Terraform configurations used in the docs.
 //go:generate terraform fmt -recursive ../examples/
 
-// Generate documentation.
-//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-dir .. -provider-name scaffolding
+// Generate the provider documentation from the schemas and examples.
+//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-dir .. -provider-name gigahost

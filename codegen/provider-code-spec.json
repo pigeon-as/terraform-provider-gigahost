@@ -1,0 +1,85 @@
+{
+	"datasources": [
+		{
+			"name": "account",
+			"schema": {
+				"attributes": [
+					{
+						"name": "cust_address",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Postal address."
+						}
+					},
+					{
+						"name": "cust_billing_email",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Billing email."
+						}
+					},
+					{
+						"name": "cust_city",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "City."
+						}
+					},
+					{
+						"name": "cust_company_no",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Organization/company number."
+						}
+					},
+					{
+						"name": "cust_country",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Country."
+						}
+					},
+					{
+						"name": "cust_email",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Primary contact email."
+						}
+					},
+					{
+						"name": "cust_id",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Customer id."
+						}
+					},
+					{
+						"name": "cust_name",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Customer (company or person) name."
+						}
+					},
+					{
+						"name": "cust_phone",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Phone number."
+						}
+					},
+					{
+						"name": "cust_zipcode",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Postal/ZIP code."
+						}
+					}
+				]
+			}
+		}
+	],
+	"provider": {
+		"name": "gigahost"
+	},
+	"version": "0.1"
+}
