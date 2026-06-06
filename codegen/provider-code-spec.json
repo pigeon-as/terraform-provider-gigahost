@@ -76,6 +76,52 @@
 					}
 				]
 			}
+		},
+		{
+			"name": "ssh_keys",
+			"schema": {
+				"attributes": [
+					{
+						"name": "ssh_keys",
+						"list_nested": {
+							"computed_optional_required": "computed",
+							"nested_object": {
+								"attributes": [
+									{
+										"name": "key_added",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "When the key was added (Unix timestamp, string-encoded)."
+										}
+									},
+									{
+										"name": "key_data",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "The OpenSSH public key material."
+										}
+									},
+									{
+										"name": "key_id",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "SSH key id."
+										}
+									},
+									{
+										"name": "key_name",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "SSH key name."
+										}
+									}
+								]
+							},
+							"description": "SSH public keys registered on the account."
+						}
+					}
+				]
+			}
 		}
 	],
 	"provider": {

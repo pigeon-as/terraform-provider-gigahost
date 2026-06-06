@@ -3,3 +3,4 @@
 FEATURES:
 
 * **New Data Source:** `gigahost_account`
+* **New Data Source:** `gigahost_ssh_keys`

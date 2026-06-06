@@ -2,48 +2,17 @@ openapi: 3.0.3
 info:
   title: Gigahost API
   version: "0.0.1"
-  description: |
-    Hand-authored OpenAPI specification for the Gigahost API
-    (https://gigahost.no/en/api-dokumentasjon), used to generate Terraform
-    Plugin Framework schemas via tfplugingen-openapi + tfplugingen-framework.
-
-    Gigahost does not publish an official OpenAPI document, so this file is
-    maintained by hand and MUST be cross-checked against the API documentation
-    whenever it changes.
-
-    Scope: this spec models everything that is code-generated — currently the
-    read-only `account` data source. New data sources and resources are added
-    here and generated; the provider config and API client stay hand-written.
-    Other parts of the account response (contacts, SSH keys, passkeys, orders)
-    will be added as their own objects in later phases.
-
-    Transport envelope: every Gigahost API response is wrapped in
-    {"meta": {...}, "data": <payload>}. That envelope is handled by the
-    hand-written API client (internal/client), NOT modelled here. The response
-    schema below therefore describes the unwrapped "data" payload directly, so
-    that the generated Terraform schema is flat and ergonomic.
-
-    Field encoding: the API encodes every scalar as a JSON string. The account
-    profile fields below are therefore all strings.
 
 servers:
   - url: https://api.gigahost.no/api/v0
-    description: Gigahost production API
 
 security:
   - bearerAuth: []
 
-tags:
-  - name: account
-    description: Account profile
-
 paths:
   /account:
     get:
-      tags: [account]
       operationId: getAccount
-      summary: Get the authenticated account
-      description: Returns the customer profile for the authenticated account.
       responses:
         "200":
           description: The authenticated account profile.
@@ -57,12 +26,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      description: 'Gigahost API token sent as the HTTP Authorization bearer header.'
 
   schemas:
     AccountData:
       type: object
-      description: The authenticated customer profile (the "data" payload of GET /account).
       properties:
         cust_id:
           type: string
@@ -94,3 +61,24 @@ components:
         cust_billing_email:
           type: string
           description: Billing email.
+        ssh_keys:
+          type: array
+          description: SSH public keys registered on the account.
+          items:
+            $ref: '#/components/schemas/SSHKey'
+
+    SSHKey:
+      type: object
+      properties:
+        key_id:
+          type: string
+          description: SSH key id.
+        key_name:
+          type: string
+          description: SSH key name.
+        key_added:
+          type: string
+          description: When the key was added (Unix timestamp, string-encoded).
+        key_data:
+          type: string
+          description: The OpenSSH public key material.

@@ -16,6 +16,8 @@ type Account struct {
 	CustEmail        string `json:"cust_email"`
 	CustCompanyNo    string `json:"cust_company_no"`
 	CustBillingEmail string `json:"cust_billing_email"`
+
+	SSHKeys []SSHKey `json:"sshkeys"`
 }
 
 func (c *Client) GetAccount(ctx context.Context) (*Account, error) {
