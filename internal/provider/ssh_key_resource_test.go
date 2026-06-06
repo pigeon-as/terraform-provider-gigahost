@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
 func testAccSSHPublicKey(t *testing.T) string {

@@ -1,4 +1,4 @@
-module github.com/joakimhellum/terraform-provider-gigahost
+module github.com/pigeon-as/terraform-provider-gigahost
 
 go 1.25.8
 

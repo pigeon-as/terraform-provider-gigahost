@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
 func TestMain(m *testing.M) {

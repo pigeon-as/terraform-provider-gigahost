@@ -13,8 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/resource_dns_record"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/resource_dns_record"
 )
 
 var (

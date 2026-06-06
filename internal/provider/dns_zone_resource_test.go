@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
 func testAccZoneName() string {

@@ -11,7 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
 var _ provider.Provider = &GigahostProvider{}

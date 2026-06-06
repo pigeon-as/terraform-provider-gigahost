@@ -8,8 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/datasource_account"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/datasource_account"
 )
 
 var (

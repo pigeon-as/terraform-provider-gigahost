@@ -15,7 +15,7 @@ The Gigahost provider manages resources on a [Gigahost](https://gigahost.no) acc
 terraform {
   required_providers {
     gigahost = {
-      source = "joakimhellum/gigahost"
+      source = "pigeon-as/gigahost"
     }
   }
 }

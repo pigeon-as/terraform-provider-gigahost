@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/joakimhellum/terraform-provider-gigahost/internal/provider"
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/provider"
 )
 
 var (
@@ -20,7 +20,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/joakimhellum/gigahost",
+		Address: "registry.terraform.io/pigeon-as/gigahost",
 		Debug:   debug,
 	}
 

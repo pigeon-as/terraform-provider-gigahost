@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     gigahost = {
-      source = "joakimhellum/gigahost"
+      source = "pigeon-as/gigahost"
     }
   }
 }
