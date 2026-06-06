@@ -17,6 +17,21 @@ resources:
         aliases:
           id: zone_id
 
+  ssh_key:
+    create:
+      path: /account/sshkey
+      method: POST
+    read:
+      path: /account/sshkey/{id}
+      method: GET
+    delete:
+      path: /account/sshkey/{id}
+      method: DELETE
+    schema:
+      attributes:
+        aliases:
+          id: key_id
+
   dns_record:
     create:
       path: /dns/zones/{zone_id}/records
