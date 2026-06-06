@@ -78,6 +78,115 @@
 			}
 		},
 		{
+			"name": "dns_zones",
+			"schema": {
+				"attributes": [
+					{
+						"name": "zones",
+						"list_nested": {
+							"computed_optional_required": "computed",
+							"nested_object": {
+								"attributes": [
+									{
+										"name": "domain_auto_renew",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Whether auto-renewal is enabled (\"1\" or \"0\")."
+										}
+									},
+									{
+										"name": "domain_expiry_date",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Domain expiry date."
+										}
+									},
+									{
+										"name": "domain_registrar",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Domain registrar."
+										}
+									},
+									{
+										"name": "domain_status",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Domain status."
+										}
+									},
+									{
+										"name": "external_dns",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Whether the zone uses external nameservers (\"1\" or \"0\")."
+										}
+									},
+									{
+										"name": "record_count",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Number of DNS records in the zone."
+										}
+									},
+									{
+										"name": "zone_active",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Whether the zone is active (\"1\" or \"0\")."
+										}
+									},
+									{
+										"name": "zone_id",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Zone id."
+										}
+									},
+									{
+										"name": "zone_is_registered",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Whether the domain is registered through Gigahost (\"1\" or \"0\")."
+										}
+									},
+									{
+										"name": "zone_name",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Domain name."
+										}
+									},
+									{
+										"name": "zone_protected",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Whether the zone is protected (\"1\" or \"0\")."
+										}
+									},
+									{
+										"name": "zone_type",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Zone type (NATIVE, MASTER, or SLAVE)."
+										}
+									},
+									{
+										"name": "zone_updated",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "When the zone was last updated (Unix timestamp, string-encoded)."
+										}
+									}
+								]
+							},
+							"description": "DNS zones on the account."
+						}
+					}
+				]
+			}
+		},
+		{
 			"name": "ssh_keys",
 			"schema": {
 				"attributes": [

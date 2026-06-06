@@ -26,3 +26,8 @@ data_sources:
         - cust_email
         - cust_company_no
         - cust_billing_email
+
+  dns_zones:
+    read:
+      path: /dns/zones
+      method: GET

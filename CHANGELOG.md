@@ -3,4 +3,5 @@
 FEATURES:
 
 * **New Data Source:** `gigahost_account`
+* **New Data Source:** `gigahost_dns_zones`
 * **New Data Source:** `gigahost_ssh_keys`

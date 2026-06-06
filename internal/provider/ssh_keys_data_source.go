@@ -69,7 +69,7 @@ func (d *sshKeysDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 		return
 	}
 
-	var state sshKeysDataSourceModel
+	state := sshKeysDataSourceModel{SSHKeys: make([]sshKeyModel, 0, len(keys))}
 	for _, k := range keys {
 		state.SSHKeys = append(state.SSHKeys, sshKeyModel{
 			KeyID:    types.StringValue(k.KeyID),
