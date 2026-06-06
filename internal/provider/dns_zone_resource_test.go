@@ -2,12 +2,14 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
@@ -23,6 +25,7 @@ func testAccZoneName() string {
 
 func TestAccDNSZoneResource_basic(t *testing.T) {
 	zoneName := testAccZoneName()
+	renamedZone := testAccZoneName()
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -37,6 +40,15 @@ func TestAccDNSZoneResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("gigahost_dns_zone.test", "zone_id"),
 					resource.TestCheckResourceAttrSet("gigahost_dns_zone.test", "zone_active"),
 				),
+			},
+			{
+				Config: testAccDNSZoneResourceConfig(renamedZone),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("gigahost_dns_zone.test", plancheck.ResourceActionReplace),
+					},
+				},
+				Check: resource.TestCheckResourceAttr("gigahost_dns_zone.test", "zone_name", renamedZone),
 			},
 			{
 				ResourceName:                         "gigahost_dns_zone.test",
@@ -76,12 +88,12 @@ func testAccCheckDNSZoneDestroy(s *terraform.State) error {
 		if rs.Type != "gigahost_dns_zone" {
 			continue
 		}
-		zone, err := c.GetZone(context.Background(), rs.Primary.Attributes["zone_id"])
-		if err != nil {
-			return err
-		}
-		if zone != nil {
+		_, err := c.GetZone(context.Background(), rs.Primary.Attributes["zone_id"])
+		if err == nil {
 			return fmt.Errorf("dns zone %s still exists", rs.Primary.Attributes["zone_id"])
+		}
+		if !errors.Is(err, client.ErrNotFound) {
+			return err
 		}
 	}
 	return nil

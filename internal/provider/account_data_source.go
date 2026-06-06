@@ -25,19 +25,6 @@ type accountDataSource struct {
 	client *client.Client
 }
 
-type accountDataSourceModel struct {
-	CustID           types.String `tfsdk:"cust_id"`
-	CustName         types.String `tfsdk:"cust_name"`
-	CustAddress      types.String `tfsdk:"cust_address"`
-	CustZipcode      types.String `tfsdk:"cust_zipcode"`
-	CustCity         types.String `tfsdk:"cust_city"`
-	CustCountry      types.String `tfsdk:"cust_country"`
-	CustPhone        types.String `tfsdk:"cust_phone"`
-	CustEmail        types.String `tfsdk:"cust_email"`
-	CustCompanyNo    types.String `tfsdk:"cust_company_no"`
-	CustBillingEmail types.String `tfsdk:"cust_billing_email"`
-}
-
 func (d *accountDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_account"
 }
@@ -71,8 +58,8 @@ func (d *accountDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 		return
 	}
 
-	state := accountDataSourceModel{
-		CustID:           types.StringValue(account.CustID),
+	state := datasource_account.AccountModel{
+		CustId:           types.StringValue(account.CustID),
 		CustName:         types.StringValue(account.CustName),
 		CustAddress:      types.StringValue(account.CustAddress),
 		CustZipcode:      types.StringValue(account.CustZipcode),

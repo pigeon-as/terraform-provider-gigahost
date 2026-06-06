@@ -4,6 +4,8 @@ package resource_dns_record
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -22,6 +24,7 @@ func DnsRecordResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Record name (host); defaults to \"@\".",
 				MarkdownDescription: "Record name (host); defaults to \"@\".",
+				Default:             stringdefault.StaticString("@"),
 			},
 			"record_priority": schema.Int64Attribute{
 				Optional:            true,
@@ -34,12 +37,14 @@ func DnsRecordResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Time to live, in seconds; defaults to 3600.",
 				MarkdownDescription: "Time to live, in seconds; defaults to 3600.",
+				Default:             int64default.StaticInt64(3600),
 			},
 			"record_type": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Record type; defaults to \"A\".",
 				MarkdownDescription: "Record type; defaults to \"A\".",
+				Default:             stringdefault.StaticString("A"),
 			},
 			"record_value": schema.StringAttribute{
 				Required:            true,

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -12,7 +13,38 @@ import (
 	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
 )
 
-func TestAccDNSRecordResource_basic(t *testing.T) {
+func testAccDNSRecordConfig(zoneName, recordBody string) string {
+	return fmt.Sprintf(`
+resource "gigahost_dns_zone" "test" {
+  zone_name = %q
+}
+
+resource "gigahost_dns_record" "test" {
+  zone_id = gigahost_dns_zone.test.zone_id
+%s
+}
+`, zoneName, recordBody)
+}
+
+func testAccDNSRecordImportID(s *terraform.State) (string, error) {
+	rs, ok := s.RootModule().Resources["gigahost_dns_record.test"]
+	if !ok {
+		return "", fmt.Errorf("resource not found in state")
+	}
+	return rs.Primary.Attributes["zone_id"] + "/" + rs.Primary.Attributes["record_id"], nil
+}
+
+func testAccDNSRecordImportStep() resource.TestStep {
+	return resource.TestStep{
+		ResourceName:                         "gigahost_dns_record.test",
+		ImportState:                          true,
+		ImportStateVerify:                    true,
+		ImportStateVerifyIdentifierAttribute: "record_id",
+		ImportStateIdFunc:                    testAccDNSRecordImportID,
+	}
+}
+
+func TestAccDNSRecordResource_A(t *testing.T) {
 	zoneName := testAccZoneName()
 
 	resource.Test(t, resource.TestCase{
@@ -21,53 +53,108 @@ func TestAccDNSRecordResource_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckDNSRecordDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccDNSRecordResourceConfig(zoneName, "203.0.113.10"),
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"a\"\n  record_type  = \"A\"\n  record_value = \"203.0.113.10\""),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_name", "test"),
 					resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_type", "A"),
 					resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "203.0.113.10"),
 					resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_ttl", "3600"),
 					resource.TestCheckResourceAttrSet("gigahost_dns_record.test", "record_id"),
-					resource.TestCheckResourceAttrPair("gigahost_dns_record.test", "zone_id", "gigahost_dns_zone.test", "zone_id"),
 				),
 			},
 			{
-				Config: testAccDNSRecordResourceConfig(zoneName, "203.0.113.20"),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "203.0.113.20"),
-					resource.TestCheckResourceAttrSet("gigahost_dns_record.test", "record_id"),
-				),
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"a\"\n  record_type  = \"A\"\n  record_value = \"203.0.113.20\""),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "203.0.113.20"),
 			},
+			testAccDNSRecordImportStep(),
+		},
+	})
+}
+
+func TestAccDNSRecordResource_AAAA(t *testing.T) {
+	zoneName := testAccZoneName()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckDNSRecordDestroy,
+		Steps: []resource.TestStep{
 			{
-				ResourceName:                         "gigahost_dns_record.test",
-				ImportState:                          true,
-				ImportStateVerify:                    true,
-				ImportStateVerifyIdentifierAttribute: "record_id",
-				ImportStateIdFunc: func(s *terraform.State) (string, error) {
-					rs, ok := s.RootModule().Resources["gigahost_dns_record.test"]
-					if !ok {
-						return "", fmt.Errorf("resource not found in state")
-					}
-					return rs.Primary.Attributes["zone_id"] + "/" + rs.Primary.Attributes["record_id"], nil
-				},
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"v6\"\n  record_type  = \"AAAA\"\n  record_value = \"2001:db8::1\""),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "2001:db8::1"),
+			},
+			testAccDNSRecordImportStep(),
+			{
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"v6\"\n  record_type  = \"AAAA\"\n  record_value = \"2001:0db8:0000:0000:0000:0000:0000:0001\""),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "2001:0db8:0000:0000:0000:0000:0000:0001"),
 			},
 		},
 	})
 }
 
-func testAccDNSRecordResourceConfig(zoneName, value string) string {
-	return fmt.Sprintf(`
-resource "gigahost_dns_zone" "test" {
-  zone_name = %q
+func TestAccDNSRecordResource_CNAME(t *testing.T) {
+	zoneName := testAccZoneName()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckDNSRecordDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"alias\"\n  record_type  = \"CNAME\"\n  record_value = \"target1.example.com\""),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "target1.example.com"),
+			},
+			{
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"alias\"\n  record_type  = \"CNAME\"\n  record_value = \"target2.example.com\""),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "target2.example.com"),
+			},
+			testAccDNSRecordImportStep(),
+		},
+	})
 }
 
-resource "gigahost_dns_record" "test" {
-  zone_id      = gigahost_dns_zone.test.zone_id
-  record_name  = "test"
-  record_type  = "A"
-  record_value = %q
+func TestAccDNSRecordResource_MX(t *testing.T) {
+	zoneName := testAccZoneName()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckDNSRecordDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDNSRecordConfig(zoneName, "  record_type     = \"MX\"\n  record_value    = \"mail.example.com\"\n  record_priority = 10"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "mail.example.com"),
+					resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_priority", "10"),
+				),
+			},
+			{
+				Config: testAccDNSRecordConfig(zoneName, "  record_type     = \"MX\"\n  record_value    = \"mail.example.com\"\n  record_priority = 20"),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_priority", "20"),
+			},
+			testAccDNSRecordImportStep(),
+		},
+	})
 }
-`, zoneName, value)
+
+func TestAccDNSRecordResource_TXT(t *testing.T) {
+	zoneName := testAccZoneName()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckDNSRecordDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"txt\"\n  record_type  = \"TXT\"\n  record_value = \"v=spf1 include:example.com -all\""),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "v=spf1 include:example.com -all"),
+			},
+			{
+				Config: testAccDNSRecordConfig(zoneName, "  record_name  = \"txt\"\n  record_type  = \"TXT\"\n  record_value = \"v=spf1 -all\""),
+				Check:  resource.TestCheckResourceAttr("gigahost_dns_record.test", "record_value", "v=spf1 -all"),
+			},
+			testAccDNSRecordImportStep(),
+		},
+	})
 }
 
 func testAccCheckDNSRecordDestroy(s *terraform.State) error {
@@ -83,14 +170,12 @@ func testAccCheckDNSRecordDestroy(s *terraform.State) error {
 		if rs.Type != "gigahost_dns_record" {
 			continue
 		}
-		record, err := c.GetRecord(context.Background(), rs.Primary.Attributes["zone_id"], rs.Primary.Attributes["record_id"])
-		if err != nil {
-			// The parent zone is destroyed alongside the record, so listing its
-			// records may fail; that still means the record is gone.
-			continue
-		}
-		if record != nil {
+		_, err := c.GetRecord(context.Background(), rs.Primary.Attributes["zone_id"], rs.Primary.Attributes["record_id"])
+		if err == nil {
 			return fmt.Errorf("dns record %s still exists", rs.Primary.Attributes["record_id"])
+		}
+		if !errors.Is(err, client.ErrNotFound) {
+			return err
 		}
 	}
 	return nil

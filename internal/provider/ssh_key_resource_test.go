@@ -1,19 +1,20 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
-	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
 )
@@ -25,21 +26,17 @@ func testAccSSHPublicKey(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	var buf bytes.Buffer
-	writeString := func(b []byte) {
-		_ = binary.Write(&buf, binary.BigEndian, uint32(len(b)))
-		buf.Write(b)
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		t.Fatal(err)
 	}
-	writeString([]byte("ssh-ed25519"))
-	writeString(pub)
-
-	return "ssh-ed25519 " + base64.StdEncoding.EncodeToString(buf.Bytes())
+	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sshPub)))
 }
 
 func TestAccSSHKeyResource_basic(t *testing.T) {
 	name := acctest.RandomWithPrefix("tf-acc")
 	publicKey := testAccSSHPublicKey(t)
+	rotatedKey := testAccSSHPublicKey(t)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -54,6 +51,15 @@ func TestAccSSHKeyResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("gigahost_ssh_key.test", "key_id"),
 					resource.TestCheckResourceAttrSet("gigahost_ssh_key.test", "key_added"),
 				),
+			},
+			{
+				Config: testAccSSHKeyResourceConfig(name, rotatedKey),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("gigahost_ssh_key.test", plancheck.ResourceActionReplace),
+					},
+				},
+				Check: resource.TestCheckResourceAttr("gigahost_ssh_key.test", "key_data", rotatedKey),
 			},
 			{
 				ResourceName:                         "gigahost_ssh_key.test",
@@ -94,12 +100,12 @@ func testAccCheckSSHKeyDestroy(s *terraform.State) error {
 		if rs.Type != "gigahost_ssh_key" {
 			continue
 		}
-		key, err := c.GetSSHKey(context.Background(), rs.Primary.Attributes["key_id"])
-		if err != nil {
-			return err
-		}
-		if key != nil {
+		_, err := c.GetSSHKey(context.Background(), rs.Primary.Attributes["key_id"])
+		if err == nil {
 			return fmt.Errorf("ssh key %s still exists", rs.Primary.Attributes["key_id"])
+		}
+		if !errors.Is(err, client.ErrNotFound) {
+			return err
 		}
 	}
 	return nil

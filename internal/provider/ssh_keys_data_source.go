@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -23,17 +24,6 @@ func NewSSHKeysDataSource() datasource.DataSource {
 
 type sshKeysDataSource struct {
 	client *client.Client
-}
-
-type sshKeysDataSourceModel struct {
-	SSHKeys []sshKeyModel `tfsdk:"ssh_keys"`
-}
-
-type sshKeyModel struct {
-	KeyID    types.String `tfsdk:"key_id"`
-	KeyName  types.String `tfsdk:"key_name"`
-	KeyAdded types.String `tfsdk:"key_added"`
-	KeyData  types.String `tfsdk:"key_data"`
 }
 
 func (d *sshKeysDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -69,16 +59,26 @@ func (d *sshKeysDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 		return
 	}
 
-	state := sshKeysDataSourceModel{SSHKeys: make([]sshKeyModel, 0, len(keys))}
+	elements := make([]datasource_ssh_keys.SshKeysValue, 0, len(keys))
 	for _, k := range keys {
-		state.SSHKeys = append(state.SSHKeys, sshKeyModel{
-			KeyID:    types.StringValue(k.KeyID),
-			KeyName:  types.StringValue(k.KeyName),
-			KeyAdded: types.StringValue(k.KeyAdded),
-			KeyData:  types.StringValue(k.KeyData),
-		})
+		elements = append(elements, datasource_ssh_keys.NewSshKeysValueMust(
+			datasource_ssh_keys.SshKeysValue{}.AttributeTypes(ctx),
+			map[string]attr.Value{
+				"key_id":    types.StringValue(k.KeyID),
+				"key_name":  types.StringValue(k.KeyName),
+				"key_added": types.StringValue(k.KeyAdded),
+				"key_data":  types.StringValue(k.KeyData),
+			},
+		))
 	}
 
+	list, diags := types.ListValueFrom(ctx, datasource_ssh_keys.SshKeysValue{}.Type(ctx), elements)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	state := datasource_ssh_keys.SshKeysModel{SshKeys: list}
 	tflog.Trace(ctx, "read gigahost ssh keys", map[string]any{"count": len(keys)})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

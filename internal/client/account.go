@@ -21,7 +21,7 @@ type Account struct {
 }
 
 func (c *Client) GetAccount(ctx context.Context) (*Account, error) {
-	req, err := c.newRequest(ctx, http.MethodGet, "account", nil)
+	req, err := c.newRequest(ctx, http.MethodGet, "account", nil, nil)
 	if err != nil {
 		return nil, err
 	}

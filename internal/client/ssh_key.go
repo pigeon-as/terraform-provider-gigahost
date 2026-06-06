@@ -38,11 +38,11 @@ func (c *Client) GetSSHKey(ctx context.Context, id string) (*SSHKey, error) {
 			return &keys[i], nil
 		}
 	}
-	return nil, nil
+	return nil, ErrNotFound
 }
 
 func (c *Client) CreateSSHKey(ctx context.Context, name, data string) (*SSHKey, error) {
-	req, err := c.newRequest(ctx, http.MethodPost, "account/sshkey", createSSHKeyRequest{Name: name, Data: data})
+	req, err := c.newRequest(ctx, http.MethodPost, "account/sshkey", nil, createSSHKeyRequest{Name: name, Data: data})
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (c *Client) CreateSSHKey(ctx context.Context, name, data string) (*SSHKey, 
 }
 
 func (c *Client) DeleteSSHKey(ctx context.Context, id string) error {
-	req, err := c.newRequest(ctx, http.MethodDelete, path.Join("account", "sshkey", id), nil)
+	req, err := c.newRequest(ctx, http.MethodDelete, path.Join("account", "sshkey", id), nil, nil)
 	if err != nil {
 		return err
 	}

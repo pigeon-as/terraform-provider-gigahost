@@ -4,6 +4,7 @@ package resource_dns_zone
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -42,6 +43,7 @@ func DnsZoneResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Zone type (NATIVE, MASTER, or SLAVE).",
 				MarkdownDescription: "Zone type (NATIVE, MASTER, or SLAVE).",
+				Default:             stringdefault.StaticString("NATIVE"),
 			},
 		},
 	}

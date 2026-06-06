@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -37,19 +38,35 @@ func (r *sshKeyResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 	s := resource_ssh_key.SshKeyResourceSchema(ctx)
 	s.MarkdownDescription = "Manages an SSH key on the Gigahost account."
 
-	keyName := s.Attributes["key_name"].(schema.StringAttribute)
+	keyName, ok := s.Attributes["key_name"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_name" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	keyName.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	s.Attributes["key_name"] = keyName
 
-	keyData := s.Attributes["key_data"].(schema.StringAttribute)
+	keyData, ok := s.Attributes["key_data"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_data" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	keyData.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	s.Attributes["key_data"] = keyData
 
-	keyID := s.Attributes["key_id"].(schema.StringAttribute)
+	keyID, ok := s.Attributes["key_id"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_id" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	keyID.PlanModifiers = []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
 	s.Attributes["key_id"] = keyID
 
-	keyAdded := s.Attributes["key_added"].(schema.StringAttribute)
+	keyAdded, ok := s.Attributes["key_added"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_added" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	keyAdded.PlanModifiers = []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
 	s.Attributes["key_added"] = keyAdded
 
@@ -101,11 +118,11 @@ func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 	key, err := r.client.GetSSHKey(ctx, state.KeyId.ValueString())
 	if err != nil {
+		if errors.Is(err, client.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to Read Gigahost SSH Key", err.Error())
-		return
-	}
-	if key == nil {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -115,10 +132,11 @@ func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *sshKeyResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan resource_ssh_key.SshKeyModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+func (r *sshKeyResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
+	resp.Diagnostics.AddError(
+		"Update Not Supported",
+		"The gigahost_ssh_key resource cannot be updated in place; every attribute requires replacement. This is a bug in the provider, please report it.",
+	)
 }
 
 func (r *sshKeyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

@@ -325,6 +325,7 @@ components:
           description: Domain name.
         zone_type:
           type: string
+          default: "NATIVE"
           description: Zone type (NATIVE, MASTER, or SLAVE).
 
     DnsRecordsData:
@@ -369,12 +370,15 @@ components:
           description: Record value (content).
         record_name:
           type: string
+          default: "@"
           description: Record name (host); defaults to "@".
         record_type:
           type: string
+          default: "A"
           description: Record type; defaults to "A".
         record_ttl:
           type: integer
+          default: 3600
           description: Time to live, in seconds; defaults to 3600.
         record_priority:
           type: integer

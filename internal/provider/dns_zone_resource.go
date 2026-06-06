@@ -2,13 +2,13 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -38,16 +38,27 @@ func (r *dnsZoneResource) Schema(ctx context.Context, _ resource.SchemaRequest, 
 	s := resource_dns_zone.DnsZoneResourceSchema(ctx)
 	s.MarkdownDescription = "Manages a DNS zone on the Gigahost account."
 
-	zoneName := s.Attributes["zone_name"].(schema.StringAttribute)
+	zoneName, ok := s.Attributes["zone_name"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_name" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	zoneName.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	s.Attributes["zone_name"] = zoneName
 
-	zoneType := s.Attributes["zone_type"].(schema.StringAttribute)
-	zoneType.Default = stringdefault.StaticString("NATIVE")
+	zoneType, ok := s.Attributes["zone_type"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_type" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	zoneType.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	s.Attributes["zone_type"] = zoneType
 
-	zoneID := s.Attributes["zone_id"].(schema.StringAttribute)
+	zoneID, ok := s.Attributes["zone_id"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_id" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	zoneID.PlanModifiers = []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
 	s.Attributes["zone_id"] = zoneID
 
@@ -100,11 +111,11 @@ func (r *dnsZoneResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	zone, err := r.client.GetZone(ctx, state.ZoneId.ValueString())
 	if err != nil {
+		if errors.Is(err, client.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to Read Gigahost DNS Zone", err.Error())
-		return
-	}
-	if zone == nil {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -120,10 +131,11 @@ func (r *dnsZoneResource) Read(ctx context.Context, req resource.ReadRequest, re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *dnsZoneResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan resource_dns_zone.DnsZoneModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+func (r *dnsZoneResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
+	resp.Diagnostics.AddError(
+		"Update Not Supported",
+		"The gigahost_dns_zone resource cannot be updated in place; every attribute requires replacement. This is a bug in the provider, please report it.",
+	)
 }
 
 func (r *dnsZoneResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

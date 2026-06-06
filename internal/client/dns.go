@@ -3,9 +3,11 @@ package client
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +16,22 @@ type flexBool bool
 func (b *flexBool) UnmarshalJSON(data []byte) error {
 	s := strings.Trim(string(data), `"`)
 	*b = flexBool(s == "1" || s == "true")
+	return nil
+}
+
+type flexInt64 int64
+
+func (n *flexInt64) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), `"`)
+	if s == "" || s == "null" {
+		*n = 0
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return err
+	}
+	*n = flexInt64(v)
 	return nil
 }
 
@@ -32,7 +50,7 @@ type createZoneRequest struct {
 }
 
 func (c *Client) ListDnsZones(ctx context.Context) ([]DnsZone, error) {
-	req, err := c.newRequest(ctx, http.MethodGet, "dns/zones", nil)
+	req, err := c.newRequest(ctx, http.MethodGet, "dns/zones", nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -54,11 +72,11 @@ func (c *Client) GetZone(ctx context.Context, id string) (*DnsZone, error) {
 			return &zones[i], nil
 		}
 	}
-	return nil, nil
+	return nil, ErrNotFound
 }
 
 func (c *Client) CreateZone(ctx context.Context, zoneName, zoneType string) (*DnsZone, error) {
-	req, err := c.newRequest(ctx, http.MethodPost, "dns/zones", createZoneRequest{ZoneName: zoneName, ZoneType: zoneType})
+	req, err := c.newRequest(ctx, http.MethodPost, "dns/zones", nil, createZoneRequest{ZoneName: zoneName, ZoneType: zoneType})
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +97,7 @@ func (c *Client) CreateZone(ctx context.Context, zoneName, zoneType string) (*Dn
 }
 
 func (c *Client) DeleteZone(ctx context.Context, id string) error {
-	req, err := c.newRequest(ctx, http.MethodDelete, path.Join("dns", "zones", id), nil)
+	req, err := c.newRequest(ctx, http.MethodDelete, path.Join("dns", "zones", id), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -87,12 +105,12 @@ func (c *Client) DeleteZone(ctx context.Context, id string) error {
 }
 
 type DnsRecord struct {
-	RecordID       string `json:"record_id"`
-	RecordName     string `json:"record_name"`
-	RecordType     string `json:"record_type"`
-	RecordValue    string `json:"record_value"`
-	RecordTTL      int64  `json:"record_ttl"`
-	RecordPriority *int64 `json:"record_priority"`
+	RecordID       string     `json:"record_id"`
+	RecordName     string     `json:"record_name"`
+	RecordType     string     `json:"record_type"`
+	RecordValue    string     `json:"record_value"`
+	RecordTTL      flexInt64  `json:"record_ttl"`
+	RecordPriority *flexInt64 `json:"record_priority"`
 }
 
 type RecordRequest struct {
@@ -104,7 +122,7 @@ type RecordRequest struct {
 }
 
 func (c *Client) ListRecords(ctx context.Context, zoneID string) ([]DnsRecord, error) {
-	req, err := c.newRequest(ctx, http.MethodGet, path.Join("dns", "zones", zoneID, "records"), nil)
+	req, err := c.newRequest(ctx, http.MethodGet, path.Join("dns", "zones", zoneID, "records"), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -126,11 +144,11 @@ func (c *Client) GetRecord(ctx context.Context, zoneID, recordID string) (*DnsRe
 			return &records[i], nil
 		}
 	}
-	return nil, nil
+	return nil, ErrNotFound
 }
 
 func (c *Client) CreateRecord(ctx context.Context, zoneID string, body RecordRequest) (*DnsRecord, error) {
-	req, err := c.newRequest(ctx, http.MethodPost, path.Join("dns", "zones", zoneID, "records"), body)
+	req, err := c.newRequest(ctx, http.MethodPost, path.Join("dns", "zones", zoneID, "records"), nil, body)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +159,7 @@ func (c *Client) CreateRecord(ctx context.Context, zoneID string, body RecordReq
 }
 
 func (c *Client) UpdateRecord(ctx context.Context, zoneID, recordID string, body RecordRequest) (*DnsRecord, error) {
-	req, err := c.newRequest(ctx, http.MethodPut, path.Join("dns", "zones", zoneID, "records", recordID), body)
+	req, err := c.newRequest(ctx, http.MethodPut, path.Join("dns", "zones", zoneID, "records", recordID), nil, body)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +174,8 @@ func (c *Client) DeleteRecord(ctx context.Context, zoneID, recordID, name, recor
 	query.Set("name", name)
 	query.Set("type", recordType)
 	query.Set("value", value)
-	endpoint := path.Join("dns", "zones", zoneID, "records", recordID) + "?" + query.Encode()
 
-	req, err := c.newRequest(ctx, http.MethodDelete, endpoint, nil)
+	req, err := c.newRequest(ctx, http.MethodDelete, path.Join("dns", "zones", zoneID, "records", recordID), query, nil)
 	if err != nil {
 		return err
 	}
@@ -170,12 +187,22 @@ func (c *Client) resolveRecord(ctx context.Context, zoneID string, body RecordRe
 	if err != nil {
 		return nil, err
 	}
+	want := NormalizeRecordValue(body.RecordType, body.RecordValue)
 	for i := range records {
 		if records[i].RecordName == body.RecordName &&
 			strings.EqualFold(records[i].RecordType, body.RecordType) &&
-			records[i].RecordValue == body.RecordValue {
+			records[i].RecordValue == want {
 			return &records[i], nil
 		}
 	}
 	return nil, fmt.Errorf("record %s %q was written but could not be found in zone %s", body.RecordType, body.RecordName, zoneID)
+}
+
+func NormalizeRecordValue(recordType, value string) string {
+	if strings.EqualFold(recordType, "AAAA") {
+		if ip := net.ParseIP(value); ip != nil {
+			return ip.String()
+		}
+	}
+	return value
 }

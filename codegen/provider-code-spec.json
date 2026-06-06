@@ -262,6 +262,9 @@
 						"name": "record_name",
 						"string": {
 							"computed_optional_required": "computed_optional",
+							"default": {
+								"static": "@"
+							},
 							"description": "Record name (host); defaults to \"@\"."
 						}
 					},
@@ -276,6 +279,9 @@
 						"name": "record_ttl",
 						"int64": {
 							"computed_optional_required": "computed_optional",
+							"default": {
+								"static": 3600
+							},
 							"description": "Time to live, in seconds; defaults to 3600."
 						}
 					},
@@ -283,6 +289,9 @@
 						"name": "record_type",
 						"string": {
 							"computed_optional_required": "computed_optional",
+							"default": {
+								"static": "A"
+							},
 							"description": "Record type; defaults to \"A\"."
 						}
 					},
@@ -324,6 +333,9 @@
 						"name": "zone_type",
 						"string": {
 							"computed_optional_required": "computed_optional",
+							"default": {
+								"static": "NATIVE"
+							},
 							"description": "Zone type (NATIVE, MASTER, or SLAVE)."
 						}
 					},

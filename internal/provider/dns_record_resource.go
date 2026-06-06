@@ -2,15 +2,14 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -40,7 +39,11 @@ func (r *dnsRecordResource) Schema(ctx context.Context, _ resource.SchemaRequest
 	s := resource_dns_record.DnsRecordResourceSchema(ctx)
 	s.MarkdownDescription = "Manages a DNS record within a Gigahost DNS zone."
 
-	zoneID := s.Attributes["zone_id"].(schema.StringAttribute)
+	zoneID, ok := s.Attributes["zone_id"].(schema.StringAttribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_id" is not a string attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	zoneID.Required = true
 	zoneID.Optional = false
 	zoneID.Computed = false
@@ -49,19 +52,11 @@ func (r *dnsRecordResource) Schema(ctx context.Context, _ resource.SchemaRequest
 	zoneID.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	s.Attributes["zone_id"] = zoneID
 
-	recordName := s.Attributes["record_name"].(schema.StringAttribute)
-	recordName.Default = stringdefault.StaticString("@")
-	s.Attributes["record_name"] = recordName
-
-	recordType := s.Attributes["record_type"].(schema.StringAttribute)
-	recordType.Default = stringdefault.StaticString("A")
-	s.Attributes["record_type"] = recordType
-
-	recordTTL := s.Attributes["record_ttl"].(schema.Int64Attribute)
-	recordTTL.Default = int64default.StaticInt64(3600)
-	s.Attributes["record_ttl"] = recordTTL
-
-	recordPriority := s.Attributes["record_priority"].(schema.Int64Attribute)
+	recordPriority, ok := s.Attributes["record_priority"].(schema.Int64Attribute)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "record_priority" is not an int64 attribute. This is a bug in the provider, please report it.`)
+		return
+	}
 	recordPriority.Computed = false
 	s.Attributes["record_priority"] = recordPriority
 
@@ -112,21 +107,27 @@ func (r *dnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	record, err := r.client.GetRecord(ctx, state.ZoneId.ValueString(), state.RecordId.ValueString())
 	if err != nil {
+		if errors.Is(err, client.ErrNotFound) {
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Unable to Read Gigahost DNS Record", err.Error())
-		return
-	}
-	if record == nil {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
 	state.RecordName = types.StringValue(record.RecordName)
 	state.RecordType = types.StringValue(record.RecordType)
-	state.RecordValue = types.StringValue(record.RecordValue)
-	state.RecordTtl = types.Int64Value(record.RecordTTL)
+
+	value := record.RecordValue
+	if !state.RecordValue.IsNull() && client.NormalizeRecordValue(record.RecordType, state.RecordValue.ValueString()) == record.RecordValue {
+		value = state.RecordValue.ValueString()
+	}
+	state.RecordValue = types.StringValue(value)
+
+	state.RecordTtl = types.Int64Value(int64(record.RecordTTL))
 	state.RecordPriority = types.Int64Null()
 	if record.RecordPriority != nil {
-		state.RecordPriority = types.Int64Value(*record.RecordPriority)
+		state.RecordPriority = types.Int64Value(int64(*record.RecordPriority))
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

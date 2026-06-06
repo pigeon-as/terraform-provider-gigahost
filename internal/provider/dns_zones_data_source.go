@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -23,19 +24,6 @@ func NewDNSZonesDataSource() datasource.DataSource {
 
 type dnsZonesDataSource struct {
 	client *client.Client
-}
-
-type dnsZonesDataSourceModel struct {
-	Zones []dnsZoneModel `tfsdk:"zones"`
-}
-
-type dnsZoneModel struct {
-	ZoneID        types.String `tfsdk:"zone_id"`
-	ZoneName      types.String `tfsdk:"zone_name"`
-	ZoneType      types.String `tfsdk:"zone_type"`
-	ZoneActive    types.Bool   `tfsdk:"zone_active"`
-	ZoneProtected types.Bool   `tfsdk:"zone_protected"`
-	ExternalDNS   types.Bool   `tfsdk:"external_dns"`
 }
 
 func (d *dnsZonesDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -71,18 +59,28 @@ func (d *dnsZonesDataSource) Read(ctx context.Context, _ datasource.ReadRequest,
 		return
 	}
 
-	state := dnsZonesDataSourceModel{Zones: make([]dnsZoneModel, 0, len(zones))}
+	elements := make([]datasource_dns_zones.ZonesValue, 0, len(zones))
 	for _, z := range zones {
-		state.Zones = append(state.Zones, dnsZoneModel{
-			ZoneID:        types.StringValue(z.ZoneID),
-			ZoneName:      types.StringValue(z.ZoneName),
-			ZoneType:      types.StringValue(z.ZoneType),
-			ZoneActive:    types.BoolValue(bool(z.ZoneActive)),
-			ZoneProtected: types.BoolValue(bool(z.ZoneProtected)),
-			ExternalDNS:   types.BoolValue(bool(z.ExternalDNS)),
-		})
+		elements = append(elements, datasource_dns_zones.NewZonesValueMust(
+			datasource_dns_zones.ZonesValue{}.AttributeTypes(ctx),
+			map[string]attr.Value{
+				"zone_id":        types.StringValue(z.ZoneID),
+				"zone_name":      types.StringValue(z.ZoneName),
+				"zone_type":      types.StringValue(z.ZoneType),
+				"zone_active":    types.BoolValue(bool(z.ZoneActive)),
+				"zone_protected": types.BoolValue(bool(z.ZoneProtected)),
+				"external_dns":   types.BoolValue(bool(z.ExternalDNS)),
+			},
+		))
 	}
 
+	list, diags := types.ListValueFrom(ctx, datasource_dns_zones.ZonesValue{}.Type(ctx), elements)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	state := datasource_dns_zones.DnsZonesModel{Zones: list}
 	tflog.Trace(ctx, "read gigahost dns zones", map[string]any{"count": len(zones)})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
