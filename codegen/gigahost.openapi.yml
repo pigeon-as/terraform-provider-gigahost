@@ -73,6 +73,21 @@ paths:
           description: The zone was deleted.
 
   /dns/zones/{zone_id}/records:
+    get:
+      operationId: listDnsRecords
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The DNS records in the zone.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DnsRecordsData'
     post:
       operationId: createDnsRecord
       parameters:
@@ -256,6 +271,15 @@ components:
         zone_type:
           type: string
           description: Zone type (NATIVE, MASTER, or SLAVE).
+
+    DnsRecordsData:
+      type: object
+      properties:
+        records:
+          type: array
+          description: DNS records in the zone.
+          items:
+            $ref: '#/components/schemas/DnsRecord'
 
     DnsRecord:
       type: object

@@ -65,3 +65,8 @@ data_sources:
     read:
       path: /dns/zones
       method: GET
+
+  dns_records:
+    read:
+      path: /dns/zones/{zone_id}/records
+      method: GET

@@ -124,6 +124,7 @@ func (p *GigahostProvider) DataSources(_ context.Context) []func() datasource.Da
 		NewAccountDataSource,
 		NewSSHKeysDataSource,
 		NewDNSZonesDataSource,
+		NewDNSRecordsDataSource,
 	}
 }
 

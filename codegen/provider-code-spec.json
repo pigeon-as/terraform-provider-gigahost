@@ -78,6 +78,72 @@
 			}
 		},
 		{
+			"name": "dns_records",
+			"schema": {
+				"attributes": [
+					{
+						"name": "zone_id",
+						"string": {
+							"computed_optional_required": "required"
+						}
+					},
+					{
+						"name": "records",
+						"list_nested": {
+							"computed_optional_required": "computed",
+							"nested_object": {
+								"attributes": [
+									{
+										"name": "record_id",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Record id."
+										}
+									},
+									{
+										"name": "record_name",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Record name (host), e.g. \"@\" or \"www\"."
+										}
+									},
+									{
+										"name": "record_priority",
+										"int64": {
+											"computed_optional_required": "computed",
+											"description": "Priority (used by MX and SRV records)."
+										}
+									},
+									{
+										"name": "record_ttl",
+										"int64": {
+											"computed_optional_required": "computed",
+											"description": "Time to live, in seconds."
+										}
+									},
+									{
+										"name": "record_type",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Record type (A, AAAA, CNAME, MX, TXT, NS, etc.)."
+										}
+									},
+									{
+										"name": "record_value",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Record value (content)."
+										}
+									}
+								]
+							},
+							"description": "DNS records in the zone."
+						}
+					}
+				]
+			}
+		},
+		{
 			"name": "dns_zones",
 			"schema": {
 				"attributes": [
