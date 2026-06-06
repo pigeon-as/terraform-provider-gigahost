@@ -319,6 +319,43 @@
 			}
 		},
 		{
+			"name": "dns_redirect",
+			"schema": {
+				"attributes": [
+					{
+						"name": "source",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"default": {
+								"static": "@"
+							},
+							"description": "Subdomain the redirect applies to; defaults to \"@\" (the zone root)."
+						}
+					},
+					{
+						"name": "target_url",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "URL that requests are redirected to."
+						}
+					},
+					{
+						"name": "enabled",
+						"bool": {
+							"computed_optional_required": "computed",
+							"description": "Whether the redirect is active."
+						}
+					},
+					{
+						"name": "zone_id",
+						"string": {
+							"computed_optional_required": "computed_optional"
+						}
+					}
+				]
+			}
+		},
+		{
 			"name": "dns_zone",
 			"schema": {
 				"attributes": [

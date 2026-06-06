@@ -206,3 +206,75 @@ func NormalizeRecordValue(recordType, value string) string {
 	}
 	return value
 }
+
+type DnsRedirect struct {
+	Source    string   `json:"source"`
+	TargetURL string   `json:"target_url"`
+	Enabled   flexBool `json:"enabled"`
+}
+
+type redirectRequest struct {
+	Source    string `json:"source"`
+	TargetURL string `json:"target_url"`
+}
+
+func (c *Client) ListRedirects(ctx context.Context, zoneID string) ([]DnsRedirect, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, path.Join("dns", "zones", zoneID, "redirect"), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var redirects []DnsRedirect
+	if err := c.sendRequest(req, &redirects); err != nil {
+		return nil, err
+	}
+	return redirects, nil
+}
+
+func (c *Client) GetRedirect(ctx context.Context, zoneID, source string) (*DnsRedirect, error) {
+	redirects, err := c.ListRedirects(ctx, zoneID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range redirects {
+		if redirects[i].Source == source {
+			return &redirects[i], nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (c *Client) CreateRedirect(ctx context.Context, zoneID, source, targetURL string) (*DnsRedirect, error) {
+	body := redirectRequest{Source: source, TargetURL: targetURL}
+	req, err := c.newRequest(ctx, http.MethodPost, path.Join("dns", "zones", zoneID, "redirect"), nil, body)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.sendRequest(req, nil); err != nil {
+		return nil, err
+	}
+	return c.GetRedirect(ctx, zoneID, source)
+}
+
+func (c *Client) UpdateRedirect(ctx context.Context, zoneID, source, targetURL string) (*DnsRedirect, error) {
+	body := redirectRequest{Source: source, TargetURL: targetURL}
+	req, err := c.newRequest(ctx, http.MethodPut, path.Join("dns", "zones", zoneID, "redirect"), nil, body)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.sendRequest(req, nil); err != nil {
+		return nil, err
+	}
+	return c.GetRedirect(ctx, zoneID, source)
+}
+
+func (c *Client) DeleteRedirect(ctx context.Context, zoneID, source string) error {
+	query := url.Values{}
+	query.Set("source", source)
+
+	req, err := c.newRequest(ctx, http.MethodDelete, path.Join("dns", "zones", zoneID, "redirect"), query, nil)
+	if err != nil {
+		return err
+	}
+	return c.sendRequest(req, nil)
+}

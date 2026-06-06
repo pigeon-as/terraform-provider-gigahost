@@ -116,6 +116,7 @@ func (p *GigahostProvider) Resources(_ context.Context) []func() resource.Resour
 	return []func() resource.Resource{
 		NewDNSZoneResource,
 		NewDNSRecordResource,
+		NewDNSRedirectResource,
 		NewSSHKeyResource,
 	}
 }

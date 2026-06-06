@@ -209,6 +209,88 @@ paths:
         "200":
           description: The record was deleted.
 
+  /dns/zones/{zone_id}/redirect:
+    post:
+      operationId: createDnsRedirect
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRedirectRequest'
+      responses:
+        "201":
+          description: The redirect was created. The client resolves it by source from GET /dns/zones/{zone_id}/redirect.
+
+  /dns/zones/{zone_id}/redirect/{source}:
+    get:
+      operationId: getDnsRedirect
+      description: Logical read; the client reads GET /dns/zones/{zone_id}/redirect and filters by source.
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: source
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The redirect.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DnsRedirect'
+    put:
+      operationId: updateDnsRedirect
+      description: The client sends PUT /dns/zones/{zone_id}/redirect with the source in the request body.
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: source
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRedirectRequest'
+      responses:
+        "200":
+          description: The redirect was updated.
+    delete:
+      operationId: deleteDnsRedirect
+      description: The client sends DELETE /dns/zones/{zone_id}/redirect with the source as a query parameter.
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: source
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The redirect was deleted.
+
 components:
   securitySchemes:
     bearerAuth:
@@ -383,3 +465,29 @@ components:
         record_priority:
           type: integer
           description: Priority (used by MX and SRV records).
+
+    DnsRedirect:
+      type: object
+      properties:
+        source:
+          type: string
+          description: Subdomain the redirect applies to, or "@" for the zone root.
+        target_url:
+          type: string
+          description: URL that requests are redirected to.
+        enabled:
+          type: boolean
+          description: Whether the redirect is active.
+
+    CreateRedirectRequest:
+      type: object
+      required:
+        - target_url
+      properties:
+        target_url:
+          type: string
+          description: URL that requests are redirected to.
+        source:
+          type: string
+          default: "@"
+          description: Subdomain the redirect applies to; defaults to "@" (the zone root).

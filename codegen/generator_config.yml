@@ -50,6 +50,20 @@ resources:
         aliases:
           id: record_id
 
+  dns_redirect:
+    create:
+      path: /dns/zones/{zone_id}/redirect
+      method: POST
+    read:
+      path: /dns/zones/{zone_id}/redirect/{source}
+      method: GET
+    update:
+      path: /dns/zones/{zone_id}/redirect/{source}
+      method: PUT
+    delete:
+      path: /dns/zones/{zone_id}/redirect/{source}
+      method: DELETE
+
 data_sources:
   account:
     read:
