@@ -189,6 +189,61 @@
 	},
 	"resources": [
 		{
+			"name": "dns_record",
+			"schema": {
+				"attributes": [
+					{
+						"name": "record_name",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "Record name (host); defaults to \"@\"."
+						}
+					},
+					{
+						"name": "record_priority",
+						"int64": {
+							"computed_optional_required": "computed_optional",
+							"description": "Priority (used by MX and SRV records)."
+						}
+					},
+					{
+						"name": "record_ttl",
+						"int64": {
+							"computed_optional_required": "computed_optional",
+							"description": "Time to live, in seconds; defaults to 3600."
+						}
+					},
+					{
+						"name": "record_type",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "Record type; defaults to \"A\"."
+						}
+					},
+					{
+						"name": "record_value",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "Record value (content)."
+						}
+					},
+					{
+						"name": "record_id",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Record id."
+						}
+					},
+					{
+						"name": "zone_id",
+						"string": {
+							"computed_optional_required": "computed_optional"
+						}
+					}
+				]
+			}
+		},
+		{
 			"name": "dns_zone",
 			"schema": {
 				"attributes": [

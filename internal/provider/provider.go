@@ -115,6 +115,7 @@ func (p *GigahostProvider) Configure(ctx context.Context, req provider.Configure
 func (p *GigahostProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewDNSZoneResource,
+		NewDNSRecordResource,
 	}
 }
 

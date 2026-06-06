@@ -70,7 +70,9 @@ func NewClient(config *Config) (*Client, error) {
 
 func (c *Client) newRequest(ctx context.Context, method, apiPath string, body any) (*retryablehttp.Request, error) {
 	endpoint := *c.baseURL
-	endpoint.Path = path.Join(endpoint.Path, apiPath)
+	reqPath, rawQuery, _ := strings.Cut(apiPath, "?")
+	endpoint.Path = path.Join(endpoint.Path, reqPath)
+	endpoint.RawQuery = rawQuery
 
 	var rawBody any
 	if body != nil {

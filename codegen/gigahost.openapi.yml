@@ -72,6 +72,86 @@ paths:
         "200":
           description: The zone was deleted.
 
+  /dns/zones/{zone_id}/records:
+    post:
+      operationId: createDnsRecord
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordRequest'
+      responses:
+        "201":
+          description: The record was created. The client resolves it by name, type, and value from GET /dns/zones/{zone_id}/records.
+
+  /dns/zones/{zone_id}/records/{id}:
+    get:
+      operationId: getDnsRecord
+      description: Logical read; the client reads GET /dns/zones/{zone_id}/records and filters by id.
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The DNS record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DnsRecord'
+    put:
+      operationId: updateDnsRecord
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordRequest'
+      responses:
+        "200":
+          description: The record was updated. The client re-resolves it by name, type, and value (the id changes on update).
+    delete:
+      operationId: deleteDnsRecord
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The record was deleted.
+
 components:
   securitySchemes:
     bearerAuth:
@@ -176,3 +256,47 @@ components:
         zone_type:
           type: string
           description: Zone type (NATIVE, MASTER, or SLAVE).
+
+    DnsRecord:
+      type: object
+      properties:
+        record_id:
+          type: string
+          description: Record id.
+        record_name:
+          type: string
+          description: Record name (host), e.g. "@" or "www".
+        record_type:
+          type: string
+          description: Record type (A, AAAA, CNAME, MX, TXT, NS, etc.).
+        record_value:
+          type: string
+          description: Record value (content).
+        record_ttl:
+          type: integer
+          description: Time to live, in seconds.
+        record_priority:
+          type: integer
+          nullable: true
+          description: Priority (used by MX and SRV records).
+
+    CreateRecordRequest:
+      type: object
+      required:
+        - record_value
+      properties:
+        record_value:
+          type: string
+          description: Record value (content).
+        record_name:
+          type: string
+          description: Record name (host); defaults to "@".
+        record_type:
+          type: string
+          description: Record type; defaults to "A".
+        record_ttl:
+          type: integer
+          description: Time to live, in seconds; defaults to 3600.
+        record_priority:
+          type: integer
+          description: Priority (used by MX and SRV records).

@@ -17,6 +17,24 @@ resources:
         aliases:
           id: zone_id
 
+  dns_record:
+    create:
+      path: /dns/zones/{zone_id}/records
+      method: POST
+    read:
+      path: /dns/zones/{zone_id}/records/{id}
+      method: GET
+    update:
+      path: /dns/zones/{zone_id}/records/{id}
+      method: PUT
+    delete:
+      path: /dns/zones/{zone_id}/records/{id}
+      method: DELETE
+    schema:
+      attributes:
+        aliases:
+          id: record_id
+
 data_sources:
   account:
     read:
