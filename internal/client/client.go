@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +11,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 const DefaultAddress = "https://api.gigahost.no/api/v0"
@@ -26,10 +27,10 @@ type Config struct {
 }
 
 type Client struct {
-	baseURL    *url.URL
-	token      string
-	httpClient *http.Client
-	userAgent  string
+	baseURL   *url.URL
+	token     string
+	http      *retryablehttp.Client
+	userAgent string
 }
 
 func NewClient(config *Config) (*Client, error) {
@@ -51,33 +52,36 @@ func NewClient(config *Config) (*Client, error) {
 		return nil, errors.New("a Gigahost API token is required")
 	}
 
-	httpClient := config.HTTPClient
-	if httpClient == nil {
-		httpClient = &http.Client{Timeout: defaultTimeout}
+	retryClient := retryablehttp.NewClient()
+	retryClient.Logger = nil
+	if config.HTTPClient != nil {
+		retryClient.HTTPClient = config.HTTPClient
+	} else {
+		retryClient.HTTPClient = &http.Client{Timeout: defaultTimeout}
 	}
 
 	return &Client{
-		baseURL:    baseURL,
-		token:      config.Token,
-		httpClient: httpClient,
-		userAgent:  config.UserAgent,
+		baseURL:   baseURL,
+		token:     config.Token,
+		http:      retryClient,
+		userAgent: config.UserAgent,
 	}, nil
 }
 
-func (c *Client) newRequest(ctx context.Context, method, apiPath string, body any) (*http.Request, error) {
+func (c *Client) newRequest(ctx context.Context, method, apiPath string, body any) (*retryablehttp.Request, error) {
 	endpoint := *c.baseURL
 	endpoint.Path = path.Join(endpoint.Path, apiPath)
 
-	var bodyReader io.Reader
+	var rawBody any
 	if body != nil {
 		encoded, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("encoding request body: %w", err)
 		}
-		bodyReader = bytes.NewReader(encoded)
+		rawBody = encoded
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, endpoint.String(), bodyReader)
+	req, err := retryablehttp.NewRequestWithContext(ctx, method, endpoint.String(), rawBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -94,8 +98,8 @@ func (c *Client) newRequest(ctx context.Context, method, apiPath string, body an
 	return req, nil
 }
 
-func (c *Client) sendRequest(req *http.Request, out any) error {
-	resp, err := c.httpClient.Do(req)
+func (c *Client) sendRequest(req *retryablehttp.Request, out any) error {
+	resp, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("performing %s %s: %w", req.Method, req.URL.Path, err)
 	}
