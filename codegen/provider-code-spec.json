@@ -88,52 +88,17 @@
 							"nested_object": {
 								"attributes": [
 									{
-										"name": "domain_auto_renew",
-										"string": {
-											"computed_optional_required": "computed",
-											"description": "Whether auto-renewal is enabled (\"1\" or \"0\")."
-										}
-									},
-									{
-										"name": "domain_expiry_date",
-										"string": {
-											"computed_optional_required": "computed",
-											"description": "Domain expiry date."
-										}
-									},
-									{
-										"name": "domain_registrar",
-										"string": {
-											"computed_optional_required": "computed",
-											"description": "Domain registrar."
-										}
-									},
-									{
-										"name": "domain_status",
-										"string": {
-											"computed_optional_required": "computed",
-											"description": "Domain status."
-										}
-									},
-									{
 										"name": "external_dns",
-										"string": {
+										"bool": {
 											"computed_optional_required": "computed",
-											"description": "Whether the zone uses external nameservers (\"1\" or \"0\")."
-										}
-									},
-									{
-										"name": "record_count",
-										"string": {
-											"computed_optional_required": "computed",
-											"description": "Number of DNS records in the zone."
+											"description": "Whether the zone is served by external nameservers."
 										}
 									},
 									{
 										"name": "zone_active",
-										"string": {
+										"bool": {
 											"computed_optional_required": "computed",
-											"description": "Whether the zone is active (\"1\" or \"0\")."
+											"description": "Whether the zone is active."
 										}
 									},
 									{
@@ -141,13 +106,6 @@
 										"string": {
 											"computed_optional_required": "computed",
 											"description": "Zone id."
-										}
-									},
-									{
-										"name": "zone_is_registered",
-										"string": {
-											"computed_optional_required": "computed",
-											"description": "Whether the domain is registered through Gigahost (\"1\" or \"0\")."
 										}
 									},
 									{
@@ -159,9 +117,9 @@
 									},
 									{
 										"name": "zone_protected",
-										"string": {
+										"bool": {
 											"computed_optional_required": "computed",
-											"description": "Whether the zone is protected (\"1\" or \"0\")."
+											"description": "Whether the zone is protected against deletion."
 										}
 									},
 									{
@@ -169,13 +127,6 @@
 										"string": {
 											"computed_optional_required": "computed",
 											"description": "Zone type (NATIVE, MASTER, or SLAVE)."
-										}
-									},
-									{
-										"name": "zone_updated",
-										"string": {
-											"computed_optional_required": "computed",
-											"description": "When the zone was last updated (Unix timestamp, string-encoded)."
 										}
 									}
 								]
@@ -236,5 +187,56 @@
 	"provider": {
 		"name": "gigahost"
 	},
+	"resources": [
+		{
+			"name": "dns_zone",
+			"schema": {
+				"attributes": [
+					{
+						"name": "zone_name",
+						"string": {
+							"computed_optional_required": "required",
+							"description": "Domain name."
+						}
+					},
+					{
+						"name": "zone_type",
+						"string": {
+							"computed_optional_required": "computed_optional",
+							"description": "Zone type (NATIVE, MASTER, or SLAVE)."
+						}
+					},
+					{
+						"name": "external_dns",
+						"bool": {
+							"computed_optional_required": "computed",
+							"description": "Whether the zone is served by external nameservers."
+						}
+					},
+					{
+						"name": "zone_active",
+						"bool": {
+							"computed_optional_required": "computed",
+							"description": "Whether the zone is active."
+						}
+					},
+					{
+						"name": "zone_id",
+						"string": {
+							"computed_optional_required": "computed",
+							"description": "Zone id."
+						}
+					},
+					{
+						"name": "zone_protected",
+						"bool": {
+							"computed_optional_required": "computed",
+							"description": "Whether the zone is protected against deletion."
+						}
+					}
+				]
+			}
+		}
+	],
 	"version": "0.1"
 }

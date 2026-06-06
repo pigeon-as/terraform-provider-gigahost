@@ -31,6 +31,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DnsZonesData'
+    post:
+      operationId: createDnsZone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateZoneRequest'
+      responses:
+        "201":
+          description: The zone was created. The client resolves it by name from GET /dns/zones.
+
+  /dns/zones/{id}:
+    get:
+      operationId: getDnsZone
+      description: Logical read; the client reads GET /dns/zones and filters by id.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The DNS zone.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DnsZone'
+    delete:
+      operationId: deleteDnsZone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The zone was deleted.
 
 components:
   securitySchemes:
@@ -116,32 +156,23 @@ components:
           type: string
           description: Zone type (NATIVE, MASTER, or SLAVE).
         zone_active:
-          type: string
-          description: Whether the zone is active ("1" or "0").
+          type: boolean
+          description: Whether the zone is active.
         zone_protected:
-          type: string
-          description: Whether the zone is protected ("1" or "0").
-        zone_is_registered:
-          type: string
-          description: Whether the domain is registered through Gigahost ("1" or "0").
-        domain_registrar:
-          type: string
-          description: Domain registrar.
-        domain_status:
-          type: string
-          description: Domain status.
-        domain_expiry_date:
-          type: string
-          description: Domain expiry date.
-        domain_auto_renew:
-          type: string
-          description: Whether auto-renewal is enabled ("1" or "0").
+          type: boolean
+          description: Whether the zone is protected against deletion.
         external_dns:
+          type: boolean
+          description: Whether the zone is served by external nameservers.
+
+    CreateZoneRequest:
+      type: object
+      required:
+        - zone_name
+      properties:
+        zone_name:
           type: string
-          description: Whether the zone uses external nameservers ("1" or "0").
-        record_count:
+          description: Domain name.
+        zone_type:
           type: string
-          description: Number of DNS records in the zone.
-        zone_updated:
-          type: string
-          description: When the zone was last updated (Unix timestamp, string-encoded).
+          description: Zone type (NATIVE, MASTER, or SLAVE).

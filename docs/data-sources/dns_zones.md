@@ -33,16 +33,9 @@ output "dns_zones" {
 
 Read-Only:
 
-- `domain_auto_renew` (String) Whether auto-renewal is enabled ("1" or "0").
-- `domain_expiry_date` (String) Domain expiry date.
-- `domain_registrar` (String) Domain registrar.
-- `domain_status` (String) Domain status.
-- `external_dns` (String) Whether the zone uses external nameservers ("1" or "0").
-- `record_count` (String) Number of DNS records in the zone.
-- `zone_active` (String) Whether the zone is active ("1" or "0").
+- `external_dns` (Boolean) Whether the zone is served by external nameservers.
+- `zone_active` (Boolean) Whether the zone is active.
 - `zone_id` (String) Zone id.
-- `zone_is_registered` (String) Whether the domain is registered through Gigahost ("1" or "0").
 - `zone_name` (String) Domain name.
-- `zone_protected` (String) Whether the zone is protected ("1" or "0").
+- `zone_protected` (Boolean) Whether the zone is protected against deletion.
 - `zone_type` (String) Zone type (NATIVE, MASTER, or SLAVE).
-- `zone_updated` (String) When the zone was last updated (Unix timestamp, string-encoded).

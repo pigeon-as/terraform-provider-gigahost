@@ -30,19 +30,12 @@ type dnsZonesDataSourceModel struct {
 }
 
 type dnsZoneModel struct {
-	ZoneID           types.String `tfsdk:"zone_id"`
-	ZoneName         types.String `tfsdk:"zone_name"`
-	ZoneType         types.String `tfsdk:"zone_type"`
-	ZoneActive       types.String `tfsdk:"zone_active"`
-	ZoneProtected    types.String `tfsdk:"zone_protected"`
-	ZoneIsRegistered types.String `tfsdk:"zone_is_registered"`
-	DomainRegistrar  types.String `tfsdk:"domain_registrar"`
-	DomainStatus     types.String `tfsdk:"domain_status"`
-	DomainExpiryDate types.String `tfsdk:"domain_expiry_date"`
-	DomainAutoRenew  types.String `tfsdk:"domain_auto_renew"`
-	ExternalDNS      types.String `tfsdk:"external_dns"`
-	RecordCount      types.String `tfsdk:"record_count"`
-	ZoneUpdated      types.String `tfsdk:"zone_updated"`
+	ZoneID        types.String `tfsdk:"zone_id"`
+	ZoneName      types.String `tfsdk:"zone_name"`
+	ZoneType      types.String `tfsdk:"zone_type"`
+	ZoneActive    types.Bool   `tfsdk:"zone_active"`
+	ZoneProtected types.Bool   `tfsdk:"zone_protected"`
+	ExternalDNS   types.Bool   `tfsdk:"external_dns"`
 }
 
 func (d *dnsZonesDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -81,19 +74,12 @@ func (d *dnsZonesDataSource) Read(ctx context.Context, _ datasource.ReadRequest,
 	state := dnsZonesDataSourceModel{Zones: make([]dnsZoneModel, 0, len(zones))}
 	for _, z := range zones {
 		state.Zones = append(state.Zones, dnsZoneModel{
-			ZoneID:           types.StringValue(z.ZoneID),
-			ZoneName:         types.StringValue(z.ZoneName),
-			ZoneType:         types.StringValue(z.ZoneType),
-			ZoneActive:       types.StringValue(z.ZoneActive),
-			ZoneProtected:    types.StringValue(z.ZoneProtected),
-			ZoneIsRegistered: types.StringValue(z.ZoneIsRegistered),
-			DomainRegistrar:  types.StringValue(z.DomainRegistrar),
-			DomainStatus:     types.StringValue(z.DomainStatus),
-			DomainExpiryDate: types.StringValue(z.DomainExpiryDate),
-			DomainAutoRenew:  types.StringValue(z.DomainAutoRenew),
-			ExternalDNS:      types.StringValue(z.ExternalDNS),
-			RecordCount:      types.StringValue(z.RecordCount),
-			ZoneUpdated:      types.StringValue(z.ZoneUpdated),
+			ZoneID:        types.StringValue(z.ZoneID),
+			ZoneName:      types.StringValue(z.ZoneName),
+			ZoneType:      types.StringValue(z.ZoneType),
+			ZoneActive:    types.BoolValue(bool(z.ZoneActive)),
+			ZoneProtected: types.BoolValue(bool(z.ZoneProtected)),
+			ExternalDNS:   types.BoolValue(bool(z.ExternalDNS)),
 		})
 	}
 

@@ -2,23 +2,32 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"path"
+	"strings"
 )
 
+type flexBool bool
+
+func (b *flexBool) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), `"`)
+	*b = flexBool(s == "1" || s == "true")
+	return nil
+}
+
 type DnsZone struct {
-	ZoneID           string `json:"zone_id"`
-	ZoneName         string `json:"zone_name"`
-	ZoneType         string `json:"zone_type"`
-	ZoneActive       string `json:"zone_active"`
-	ZoneProtected    string `json:"zone_protected"`
-	ZoneIsRegistered string `json:"zone_is_registered"`
-	DomainRegistrar  string `json:"domain_registrar"`
-	DomainStatus     string `json:"domain_status"`
-	DomainExpiryDate string `json:"domain_expiry_date"`
-	DomainAutoRenew  string `json:"domain_auto_renew"`
-	ExternalDNS      string `json:"external_dns"`
-	RecordCount      string `json:"record_count"`
-	ZoneUpdated      string `json:"zone_updated"`
+	ZoneID        string   `json:"zone_id"`
+	ZoneName      string   `json:"zone_name"`
+	ZoneType      string   `json:"zone_type"`
+	ZoneActive    flexBool `json:"zone_active"`
+	ZoneProtected flexBool `json:"zone_protected"`
+	ExternalDNS   flexBool `json:"external_dns"`
+}
+
+type createZoneRequest struct {
+	ZoneName string `json:"zone_name"`
+	ZoneType string `json:"zone_type"`
 }
 
 func (c *Client) ListDnsZones(ctx context.Context) ([]DnsZone, error) {
@@ -32,4 +41,46 @@ func (c *Client) ListDnsZones(ctx context.Context) ([]DnsZone, error) {
 		return nil, err
 	}
 	return zones, nil
+}
+
+func (c *Client) GetZone(ctx context.Context, id string) (*DnsZone, error) {
+	zones, err := c.ListDnsZones(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range zones {
+		if zones[i].ZoneID == id {
+			return &zones[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (c *Client) CreateZone(ctx context.Context, zoneName, zoneType string) (*DnsZone, error) {
+	req, err := c.newRequest(ctx, http.MethodPost, "dns/zones", createZoneRequest{ZoneName: zoneName, ZoneType: zoneType})
+	if err != nil {
+		return nil, err
+	}
+	if err := c.sendRequest(req, nil); err != nil {
+		return nil, err
+	}
+
+	zones, err := c.ListDnsZones(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range zones {
+		if strings.EqualFold(zones[i].ZoneName, zoneName) {
+			return &zones[i], nil
+		}
+	}
+	return nil, fmt.Errorf("zone %q was created but could not be found on the account", zoneName)
+}
+
+func (c *Client) DeleteZone(ctx context.Context, id string) error {
+	req, err := c.newRequest(ctx, http.MethodDelete, path.Join("dns", "zones", id), nil)
+	if err != nil {
+		return err
+	}
+	return c.sendRequest(req, nil)
 }

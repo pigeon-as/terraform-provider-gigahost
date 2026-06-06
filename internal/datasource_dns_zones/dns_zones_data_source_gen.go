@@ -21,70 +21,35 @@ func DnsZonesDataSourceSchema(ctx context.Context) schema.Schema {
 			"zones": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"domain_auto_renew": schema.StringAttribute{
+						"external_dns": schema.BoolAttribute{
 							Computed:            true,
-							Description:         "Whether auto-renewal is enabled (\"1\" or \"0\").",
-							MarkdownDescription: "Whether auto-renewal is enabled (\"1\" or \"0\").",
+							Description:         "Whether the zone is served by external nameservers.",
+							MarkdownDescription: "Whether the zone is served by external nameservers.",
 						},
-						"domain_expiry_date": schema.StringAttribute{
+						"zone_active": schema.BoolAttribute{
 							Computed:            true,
-							Description:         "Domain expiry date.",
-							MarkdownDescription: "Domain expiry date.",
-						},
-						"domain_registrar": schema.StringAttribute{
-							Computed:            true,
-							Description:         "Domain registrar.",
-							MarkdownDescription: "Domain registrar.",
-						},
-						"domain_status": schema.StringAttribute{
-							Computed:            true,
-							Description:         "Domain status.",
-							MarkdownDescription: "Domain status.",
-						},
-						"external_dns": schema.StringAttribute{
-							Computed:            true,
-							Description:         "Whether the zone uses external nameservers (\"1\" or \"0\").",
-							MarkdownDescription: "Whether the zone uses external nameservers (\"1\" or \"0\").",
-						},
-						"record_count": schema.StringAttribute{
-							Computed:            true,
-							Description:         "Number of DNS records in the zone.",
-							MarkdownDescription: "Number of DNS records in the zone.",
-						},
-						"zone_active": schema.StringAttribute{
-							Computed:            true,
-							Description:         "Whether the zone is active (\"1\" or \"0\").",
-							MarkdownDescription: "Whether the zone is active (\"1\" or \"0\").",
+							Description:         "Whether the zone is active.",
+							MarkdownDescription: "Whether the zone is active.",
 						},
 						"zone_id": schema.StringAttribute{
 							Computed:            true,
 							Description:         "Zone id.",
 							MarkdownDescription: "Zone id.",
 						},
-						"zone_is_registered": schema.StringAttribute{
-							Computed:            true,
-							Description:         "Whether the domain is registered through Gigahost (\"1\" or \"0\").",
-							MarkdownDescription: "Whether the domain is registered through Gigahost (\"1\" or \"0\").",
-						},
 						"zone_name": schema.StringAttribute{
 							Computed:            true,
 							Description:         "Domain name.",
 							MarkdownDescription: "Domain name.",
 						},
-						"zone_protected": schema.StringAttribute{
+						"zone_protected": schema.BoolAttribute{
 							Computed:            true,
-							Description:         "Whether the zone is protected (\"1\" or \"0\").",
-							MarkdownDescription: "Whether the zone is protected (\"1\" or \"0\").",
+							Description:         "Whether the zone is protected against deletion.",
+							MarkdownDescription: "Whether the zone is protected against deletion.",
 						},
 						"zone_type": schema.StringAttribute{
 							Computed:            true,
 							Description:         "Zone type (NATIVE, MASTER, or SLAVE).",
 							MarkdownDescription: "Zone type (NATIVE, MASTER, or SLAVE).",
-						},
-						"zone_updated": schema.StringAttribute{
-							Computed:            true,
-							Description:         "When the zone was last updated (Unix timestamp, string-encoded).",
-							MarkdownDescription: "When the zone was last updated (Unix timestamp, string-encoded).",
 						},
 					},
 					CustomType: ZonesType{
@@ -130,78 +95,6 @@ func (t ZonesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 
 	attributes := in.Attributes()
 
-	domainAutoRenewAttribute, ok := attributes["domain_auto_renew"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_auto_renew is missing from object`)
-
-		return nil, diags
-	}
-
-	domainAutoRenewVal, ok := domainAutoRenewAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_auto_renew expected to be basetypes.StringValue, was: %T`, domainAutoRenewAttribute))
-	}
-
-	domainExpiryDateAttribute, ok := attributes["domain_expiry_date"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_expiry_date is missing from object`)
-
-		return nil, diags
-	}
-
-	domainExpiryDateVal, ok := domainExpiryDateAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_expiry_date expected to be basetypes.StringValue, was: %T`, domainExpiryDateAttribute))
-	}
-
-	domainRegistrarAttribute, ok := attributes["domain_registrar"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_registrar is missing from object`)
-
-		return nil, diags
-	}
-
-	domainRegistrarVal, ok := domainRegistrarAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_registrar expected to be basetypes.StringValue, was: %T`, domainRegistrarAttribute))
-	}
-
-	domainStatusAttribute, ok := attributes["domain_status"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_status is missing from object`)
-
-		return nil, diags
-	}
-
-	domainStatusVal, ok := domainStatusAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_status expected to be basetypes.StringValue, was: %T`, domainStatusAttribute))
-	}
-
 	externalDnsAttribute, ok := attributes["external_dns"]
 
 	if !ok {
@@ -212,30 +105,12 @@ func (t ZonesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 		return nil, diags
 	}
 
-	externalDnsVal, ok := externalDnsAttribute.(basetypes.StringValue)
+	externalDnsVal, ok := externalDnsAttribute.(basetypes.BoolValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`external_dns expected to be basetypes.StringValue, was: %T`, externalDnsAttribute))
-	}
-
-	recordCountAttribute, ok := attributes["record_count"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`record_count is missing from object`)
-
-		return nil, diags
-	}
-
-	recordCountVal, ok := recordCountAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`record_count expected to be basetypes.StringValue, was: %T`, recordCountAttribute))
+			fmt.Sprintf(`external_dns expected to be basetypes.BoolValue, was: %T`, externalDnsAttribute))
 	}
 
 	zoneActiveAttribute, ok := attributes["zone_active"]
@@ -248,12 +123,12 @@ func (t ZonesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 		return nil, diags
 	}
 
-	zoneActiveVal, ok := zoneActiveAttribute.(basetypes.StringValue)
+	zoneActiveVal, ok := zoneActiveAttribute.(basetypes.BoolValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_active expected to be basetypes.StringValue, was: %T`, zoneActiveAttribute))
+			fmt.Sprintf(`zone_active expected to be basetypes.BoolValue, was: %T`, zoneActiveAttribute))
 	}
 
 	zoneIdAttribute, ok := attributes["zone_id"]
@@ -272,24 +147,6 @@ func (t ZonesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 		diags.AddError(
 			"Attribute Wrong Type",
 			fmt.Sprintf(`zone_id expected to be basetypes.StringValue, was: %T`, zoneIdAttribute))
-	}
-
-	zoneIsRegisteredAttribute, ok := attributes["zone_is_registered"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`zone_is_registered is missing from object`)
-
-		return nil, diags
-	}
-
-	zoneIsRegisteredVal, ok := zoneIsRegisteredAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_is_registered expected to be basetypes.StringValue, was: %T`, zoneIsRegisteredAttribute))
 	}
 
 	zoneNameAttribute, ok := attributes["zone_name"]
@@ -320,12 +177,12 @@ func (t ZonesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 		return nil, diags
 	}
 
-	zoneProtectedVal, ok := zoneProtectedAttribute.(basetypes.StringValue)
+	zoneProtectedVal, ok := zoneProtectedAttribute.(basetypes.BoolValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_protected expected to be basetypes.StringValue, was: %T`, zoneProtectedAttribute))
+			fmt.Sprintf(`zone_protected expected to be basetypes.BoolValue, was: %T`, zoneProtectedAttribute))
 	}
 
 	zoneTypeAttribute, ok := attributes["zone_type"]
@@ -346,43 +203,18 @@ func (t ZonesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 			fmt.Sprintf(`zone_type expected to be basetypes.StringValue, was: %T`, zoneTypeAttribute))
 	}
 
-	zoneUpdatedAttribute, ok := attributes["zone_updated"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`zone_updated is missing from object`)
-
-		return nil, diags
-	}
-
-	zoneUpdatedVal, ok := zoneUpdatedAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_updated expected to be basetypes.StringValue, was: %T`, zoneUpdatedAttribute))
-	}
-
 	if diags.HasError() {
 		return nil, diags
 	}
 
 	return ZonesValue{
-		DomainAutoRenew:  domainAutoRenewVal,
-		DomainExpiryDate: domainExpiryDateVal,
-		DomainRegistrar:  domainRegistrarVal,
-		DomainStatus:     domainStatusVal,
-		ExternalDns:      externalDnsVal,
-		RecordCount:      recordCountVal,
-		ZoneActive:       zoneActiveVal,
-		ZoneId:           zoneIdVal,
-		ZoneIsRegistered: zoneIsRegisteredVal,
-		ZoneName:         zoneNameVal,
-		ZoneProtected:    zoneProtectedVal,
-		ZoneType:         zoneTypeVal,
-		ZoneUpdated:      zoneUpdatedVal,
-		state:            attr.ValueStateKnown,
+		ExternalDns:   externalDnsVal,
+		ZoneActive:    zoneActiveVal,
+		ZoneId:        zoneIdVal,
+		ZoneName:      zoneNameVal,
+		ZoneProtected: zoneProtectedVal,
+		ZoneType:      zoneTypeVal,
+		state:         attr.ValueStateKnown,
 	}, diags
 }
 
@@ -449,78 +281,6 @@ func NewZonesValue(attributeTypes map[string]attr.Type, attributes map[string]at
 		return NewZonesValueUnknown(), diags
 	}
 
-	domainAutoRenewAttribute, ok := attributes["domain_auto_renew"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_auto_renew is missing from object`)
-
-		return NewZonesValueUnknown(), diags
-	}
-
-	domainAutoRenewVal, ok := domainAutoRenewAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_auto_renew expected to be basetypes.StringValue, was: %T`, domainAutoRenewAttribute))
-	}
-
-	domainExpiryDateAttribute, ok := attributes["domain_expiry_date"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_expiry_date is missing from object`)
-
-		return NewZonesValueUnknown(), diags
-	}
-
-	domainExpiryDateVal, ok := domainExpiryDateAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_expiry_date expected to be basetypes.StringValue, was: %T`, domainExpiryDateAttribute))
-	}
-
-	domainRegistrarAttribute, ok := attributes["domain_registrar"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_registrar is missing from object`)
-
-		return NewZonesValueUnknown(), diags
-	}
-
-	domainRegistrarVal, ok := domainRegistrarAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_registrar expected to be basetypes.StringValue, was: %T`, domainRegistrarAttribute))
-	}
-
-	domainStatusAttribute, ok := attributes["domain_status"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`domain_status is missing from object`)
-
-		return NewZonesValueUnknown(), diags
-	}
-
-	domainStatusVal, ok := domainStatusAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`domain_status expected to be basetypes.StringValue, was: %T`, domainStatusAttribute))
-	}
-
 	externalDnsAttribute, ok := attributes["external_dns"]
 
 	if !ok {
@@ -531,30 +291,12 @@ func NewZonesValue(attributeTypes map[string]attr.Type, attributes map[string]at
 		return NewZonesValueUnknown(), diags
 	}
 
-	externalDnsVal, ok := externalDnsAttribute.(basetypes.StringValue)
+	externalDnsVal, ok := externalDnsAttribute.(basetypes.BoolValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`external_dns expected to be basetypes.StringValue, was: %T`, externalDnsAttribute))
-	}
-
-	recordCountAttribute, ok := attributes["record_count"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`record_count is missing from object`)
-
-		return NewZonesValueUnknown(), diags
-	}
-
-	recordCountVal, ok := recordCountAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`record_count expected to be basetypes.StringValue, was: %T`, recordCountAttribute))
+			fmt.Sprintf(`external_dns expected to be basetypes.BoolValue, was: %T`, externalDnsAttribute))
 	}
 
 	zoneActiveAttribute, ok := attributes["zone_active"]
@@ -567,12 +309,12 @@ func NewZonesValue(attributeTypes map[string]attr.Type, attributes map[string]at
 		return NewZonesValueUnknown(), diags
 	}
 
-	zoneActiveVal, ok := zoneActiveAttribute.(basetypes.StringValue)
+	zoneActiveVal, ok := zoneActiveAttribute.(basetypes.BoolValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_active expected to be basetypes.StringValue, was: %T`, zoneActiveAttribute))
+			fmt.Sprintf(`zone_active expected to be basetypes.BoolValue, was: %T`, zoneActiveAttribute))
 	}
 
 	zoneIdAttribute, ok := attributes["zone_id"]
@@ -591,24 +333,6 @@ func NewZonesValue(attributeTypes map[string]attr.Type, attributes map[string]at
 		diags.AddError(
 			"Attribute Wrong Type",
 			fmt.Sprintf(`zone_id expected to be basetypes.StringValue, was: %T`, zoneIdAttribute))
-	}
-
-	zoneIsRegisteredAttribute, ok := attributes["zone_is_registered"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`zone_is_registered is missing from object`)
-
-		return NewZonesValueUnknown(), diags
-	}
-
-	zoneIsRegisteredVal, ok := zoneIsRegisteredAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_is_registered expected to be basetypes.StringValue, was: %T`, zoneIsRegisteredAttribute))
 	}
 
 	zoneNameAttribute, ok := attributes["zone_name"]
@@ -639,12 +363,12 @@ func NewZonesValue(attributeTypes map[string]attr.Type, attributes map[string]at
 		return NewZonesValueUnknown(), diags
 	}
 
-	zoneProtectedVal, ok := zoneProtectedAttribute.(basetypes.StringValue)
+	zoneProtectedVal, ok := zoneProtectedAttribute.(basetypes.BoolValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_protected expected to be basetypes.StringValue, was: %T`, zoneProtectedAttribute))
+			fmt.Sprintf(`zone_protected expected to be basetypes.BoolValue, was: %T`, zoneProtectedAttribute))
 	}
 
 	zoneTypeAttribute, ok := attributes["zone_type"]
@@ -665,43 +389,18 @@ func NewZonesValue(attributeTypes map[string]attr.Type, attributes map[string]at
 			fmt.Sprintf(`zone_type expected to be basetypes.StringValue, was: %T`, zoneTypeAttribute))
 	}
 
-	zoneUpdatedAttribute, ok := attributes["zone_updated"]
-
-	if !ok {
-		diags.AddError(
-			"Attribute Missing",
-			`zone_updated is missing from object`)
-
-		return NewZonesValueUnknown(), diags
-	}
-
-	zoneUpdatedVal, ok := zoneUpdatedAttribute.(basetypes.StringValue)
-
-	if !ok {
-		diags.AddError(
-			"Attribute Wrong Type",
-			fmt.Sprintf(`zone_updated expected to be basetypes.StringValue, was: %T`, zoneUpdatedAttribute))
-	}
-
 	if diags.HasError() {
 		return NewZonesValueUnknown(), diags
 	}
 
 	return ZonesValue{
-		DomainAutoRenew:  domainAutoRenewVal,
-		DomainExpiryDate: domainExpiryDateVal,
-		DomainRegistrar:  domainRegistrarVal,
-		DomainStatus:     domainStatusVal,
-		ExternalDns:      externalDnsVal,
-		RecordCount:      recordCountVal,
-		ZoneActive:       zoneActiveVal,
-		ZoneId:           zoneIdVal,
-		ZoneIsRegistered: zoneIsRegisteredVal,
-		ZoneName:         zoneNameVal,
-		ZoneProtected:    zoneProtectedVal,
-		ZoneType:         zoneTypeVal,
-		ZoneUpdated:      zoneUpdatedVal,
-		state:            attr.ValueStateKnown,
+		ExternalDns:   externalDnsVal,
+		ZoneActive:    zoneActiveVal,
+		ZoneId:        zoneIdVal,
+		ZoneName:      zoneNameVal,
+		ZoneProtected: zoneProtectedVal,
+		ZoneType:      zoneTypeVal,
+		state:         attr.ValueStateKnown,
 	}, diags
 }
 
@@ -773,79 +472,33 @@ func (t ZonesType) ValueType(ctx context.Context) attr.Value {
 var _ basetypes.ObjectValuable = ZonesValue{}
 
 type ZonesValue struct {
-	DomainAutoRenew  basetypes.StringValue `tfsdk:"domain_auto_renew"`
-	DomainExpiryDate basetypes.StringValue `tfsdk:"domain_expiry_date"`
-	DomainRegistrar  basetypes.StringValue `tfsdk:"domain_registrar"`
-	DomainStatus     basetypes.StringValue `tfsdk:"domain_status"`
-	ExternalDns      basetypes.StringValue `tfsdk:"external_dns"`
-	RecordCount      basetypes.StringValue `tfsdk:"record_count"`
-	ZoneActive       basetypes.StringValue `tfsdk:"zone_active"`
-	ZoneId           basetypes.StringValue `tfsdk:"zone_id"`
-	ZoneIsRegistered basetypes.StringValue `tfsdk:"zone_is_registered"`
-	ZoneName         basetypes.StringValue `tfsdk:"zone_name"`
-	ZoneProtected    basetypes.StringValue `tfsdk:"zone_protected"`
-	ZoneType         basetypes.StringValue `tfsdk:"zone_type"`
-	ZoneUpdated      basetypes.StringValue `tfsdk:"zone_updated"`
-	state            attr.ValueState
+	ExternalDns   basetypes.BoolValue   `tfsdk:"external_dns"`
+	ZoneActive    basetypes.BoolValue   `tfsdk:"zone_active"`
+	ZoneId        basetypes.StringValue `tfsdk:"zone_id"`
+	ZoneName      basetypes.StringValue `tfsdk:"zone_name"`
+	ZoneProtected basetypes.BoolValue   `tfsdk:"zone_protected"`
+	ZoneType      basetypes.StringValue `tfsdk:"zone_type"`
+	state         attr.ValueState
 }
 
 func (v ZonesValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	attrTypes := make(map[string]tftypes.Type, 13)
+	attrTypes := make(map[string]tftypes.Type, 6)
 
 	var val tftypes.Value
 	var err error
 
-	attrTypes["domain_auto_renew"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["domain_expiry_date"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["domain_registrar"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["domain_status"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["external_dns"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["record_count"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["zone_active"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["external_dns"] = basetypes.BoolType{}.TerraformType(ctx)
+	attrTypes["zone_active"] = basetypes.BoolType{}.TerraformType(ctx)
 	attrTypes["zone_id"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["zone_is_registered"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["zone_name"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["zone_protected"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["zone_protected"] = basetypes.BoolType{}.TerraformType(ctx)
 	attrTypes["zone_type"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["zone_updated"] = basetypes.StringType{}.TerraformType(ctx)
 
 	objectType := tftypes.Object{AttributeTypes: attrTypes}
 
 	switch v.state {
 	case attr.ValueStateKnown:
-		vals := make(map[string]tftypes.Value, 13)
-
-		val, err = v.DomainAutoRenew.ToTerraformValue(ctx)
-
-		if err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		vals["domain_auto_renew"] = val
-
-		val, err = v.DomainExpiryDate.ToTerraformValue(ctx)
-
-		if err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		vals["domain_expiry_date"] = val
-
-		val, err = v.DomainRegistrar.ToTerraformValue(ctx)
-
-		if err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		vals["domain_registrar"] = val
-
-		val, err = v.DomainStatus.ToTerraformValue(ctx)
-
-		if err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		vals["domain_status"] = val
+		vals := make(map[string]tftypes.Value, 6)
 
 		val, err = v.ExternalDns.ToTerraformValue(ctx)
 
@@ -854,14 +507,6 @@ func (v ZonesValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error)
 		}
 
 		vals["external_dns"] = val
-
-		val, err = v.RecordCount.ToTerraformValue(ctx)
-
-		if err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		vals["record_count"] = val
 
 		val, err = v.ZoneActive.ToTerraformValue(ctx)
 
@@ -878,14 +523,6 @@ func (v ZonesValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error)
 		}
 
 		vals["zone_id"] = val
-
-		val, err = v.ZoneIsRegistered.ToTerraformValue(ctx)
-
-		if err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		vals["zone_is_registered"] = val
 
 		val, err = v.ZoneName.ToTerraformValue(ctx)
 
@@ -910,14 +547,6 @@ func (v ZonesValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error)
 		}
 
 		vals["zone_type"] = val
-
-		val, err = v.ZoneUpdated.ToTerraformValue(ctx)
-
-		if err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		vals["zone_updated"] = val
 
 		if err := tftypes.ValidateValue(objectType, vals); err != nil {
 			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
@@ -949,19 +578,12 @@ func (v ZonesValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, d
 	var diags diag.Diagnostics
 
 	attributeTypes := map[string]attr.Type{
-		"domain_auto_renew":  basetypes.StringType{},
-		"domain_expiry_date": basetypes.StringType{},
-		"domain_registrar":   basetypes.StringType{},
-		"domain_status":      basetypes.StringType{},
-		"external_dns":       basetypes.StringType{},
-		"record_count":       basetypes.StringType{},
-		"zone_active":        basetypes.StringType{},
-		"zone_id":            basetypes.StringType{},
-		"zone_is_registered": basetypes.StringType{},
-		"zone_name":          basetypes.StringType{},
-		"zone_protected":     basetypes.StringType{},
-		"zone_type":          basetypes.StringType{},
-		"zone_updated":       basetypes.StringType{},
+		"external_dns":   basetypes.BoolType{},
+		"zone_active":    basetypes.BoolType{},
+		"zone_id":        basetypes.StringType{},
+		"zone_name":      basetypes.StringType{},
+		"zone_protected": basetypes.BoolType{},
+		"zone_type":      basetypes.StringType{},
 	}
 
 	if v.IsNull() {
@@ -975,19 +597,12 @@ func (v ZonesValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, d
 	objVal, diags := types.ObjectValue(
 		attributeTypes,
 		map[string]attr.Value{
-			"domain_auto_renew":  v.DomainAutoRenew,
-			"domain_expiry_date": v.DomainExpiryDate,
-			"domain_registrar":   v.DomainRegistrar,
-			"domain_status":      v.DomainStatus,
-			"external_dns":       v.ExternalDns,
-			"record_count":       v.RecordCount,
-			"zone_active":        v.ZoneActive,
-			"zone_id":            v.ZoneId,
-			"zone_is_registered": v.ZoneIsRegistered,
-			"zone_name":          v.ZoneName,
-			"zone_protected":     v.ZoneProtected,
-			"zone_type":          v.ZoneType,
-			"zone_updated":       v.ZoneUpdated,
+			"external_dns":   v.ExternalDns,
+			"zone_active":    v.ZoneActive,
+			"zone_id":        v.ZoneId,
+			"zone_name":      v.ZoneName,
+			"zone_protected": v.ZoneProtected,
+			"zone_type":      v.ZoneType,
 		})
 
 	return objVal, diags
@@ -1008,27 +623,7 @@ func (v ZonesValue) Equal(o attr.Value) bool {
 		return true
 	}
 
-	if !v.DomainAutoRenew.Equal(other.DomainAutoRenew) {
-		return false
-	}
-
-	if !v.DomainExpiryDate.Equal(other.DomainExpiryDate) {
-		return false
-	}
-
-	if !v.DomainRegistrar.Equal(other.DomainRegistrar) {
-		return false
-	}
-
-	if !v.DomainStatus.Equal(other.DomainStatus) {
-		return false
-	}
-
 	if !v.ExternalDns.Equal(other.ExternalDns) {
-		return false
-	}
-
-	if !v.RecordCount.Equal(other.RecordCount) {
 		return false
 	}
 
@@ -1037,10 +632,6 @@ func (v ZonesValue) Equal(o attr.Value) bool {
 	}
 
 	if !v.ZoneId.Equal(other.ZoneId) {
-		return false
-	}
-
-	if !v.ZoneIsRegistered.Equal(other.ZoneIsRegistered) {
 		return false
 	}
 
@@ -1053,10 +644,6 @@ func (v ZonesValue) Equal(o attr.Value) bool {
 	}
 
 	if !v.ZoneType.Equal(other.ZoneType) {
-		return false
-	}
-
-	if !v.ZoneUpdated.Equal(other.ZoneUpdated) {
 		return false
 	}
 
@@ -1073,18 +660,11 @@ func (v ZonesValue) Type(ctx context.Context) attr.Type {
 
 func (v ZonesValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 	return map[string]attr.Type{
-		"domain_auto_renew":  basetypes.StringType{},
-		"domain_expiry_date": basetypes.StringType{},
-		"domain_registrar":   basetypes.StringType{},
-		"domain_status":      basetypes.StringType{},
-		"external_dns":       basetypes.StringType{},
-		"record_count":       basetypes.StringType{},
-		"zone_active":        basetypes.StringType{},
-		"zone_id":            basetypes.StringType{},
-		"zone_is_registered": basetypes.StringType{},
-		"zone_name":          basetypes.StringType{},
-		"zone_protected":     basetypes.StringType{},
-		"zone_type":          basetypes.StringType{},
-		"zone_updated":       basetypes.StringType{},
+		"external_dns":   basetypes.BoolType{},
+		"zone_active":    basetypes.BoolType{},
+		"zone_id":        basetypes.StringType{},
+		"zone_name":      basetypes.StringType{},
+		"zone_protected": basetypes.BoolType{},
+		"zone_type":      basetypes.StringType{},
 	}
 }

@@ -1,6 +1,22 @@
 provider:
   name: gigahost
 
+resources:
+  dns_zone:
+    create:
+      path: /dns/zones
+      method: POST
+    read:
+      path: /dns/zones/{id}
+      method: GET
+    delete:
+      path: /dns/zones/{id}
+      method: DELETE
+    schema:
+      attributes:
+        aliases:
+          id: zone_id
+
 data_sources:
   account:
     read:
