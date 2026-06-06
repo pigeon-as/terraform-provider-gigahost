@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/joakimhellum/terraform-provider-gigahost/internal/client"
 	"github.com/joakimhellum/terraform-provider-gigahost/internal/datasource_account"
@@ -22,6 +23,19 @@ func NewAccountDataSource() datasource.DataSource {
 
 type accountDataSource struct {
 	client *client.Client
+}
+
+type accountDataSourceModel struct {
+	CustID           types.String `tfsdk:"cust_id"`
+	CustName         types.String `tfsdk:"cust_name"`
+	CustAddress      types.String `tfsdk:"cust_address"`
+	CustZipcode      types.String `tfsdk:"cust_zipcode"`
+	CustCity         types.String `tfsdk:"cust_city"`
+	CustCountry      types.String `tfsdk:"cust_country"`
+	CustPhone        types.String `tfsdk:"cust_phone"`
+	CustEmail        types.String `tfsdk:"cust_email"`
+	CustCompanyNo    types.String `tfsdk:"cust_company_no"`
+	CustBillingEmail types.String `tfsdk:"cust_billing_email"`
 }
 
 func (d *accountDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -57,8 +71,8 @@ func (d *accountDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 		return
 	}
 
-	state := datasource_account.AccountModel{
-		CustId:           types.StringValue(account.CustID),
+	state := accountDataSourceModel{
+		CustID:           types.StringValue(account.CustID),
 		CustName:         types.StringValue(account.CustName),
 		CustAddress:      types.StringValue(account.CustAddress),
 		CustZipcode:      types.StringValue(account.CustZipcode),
@@ -70,5 +84,6 @@ func (d *accountDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 		CustBillingEmail: types.StringValue(account.CustBillingEmail),
 	}
 
+	tflog.Trace(ctx, "read gigahost account")
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
