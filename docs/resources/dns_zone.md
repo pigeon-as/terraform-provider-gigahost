@@ -13,7 +13,6 @@ Manages a DNS zone on the Gigahost account.
 ## Example Usage
 
 ```terraform
-# Manage a DNS zone (DNS hosting for a domain).
 resource "gigahost_dns_zone" "example" {
   zone_name = "example.com"
 }

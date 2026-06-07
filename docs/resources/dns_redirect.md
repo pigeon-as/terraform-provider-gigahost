@@ -13,7 +13,6 @@ Manages an HTTP redirect for a Gigahost DNS zone.
 ## Example Usage
 
 ```terraform
-# Redirect a hostname in a zone to another URL.
 resource "gigahost_dns_zone" "example" {
   zone_name = "example.com"
 }

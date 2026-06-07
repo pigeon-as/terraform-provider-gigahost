@@ -9,11 +9,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
-	"github.com/pigeon-as/terraform-provider-gigahost/internal/resource_dns_zone"
 )
 
 var (
@@ -30,39 +30,60 @@ type dnsZoneResource struct {
 	client *client.Client
 }
 
+type dnsZoneResourceModel struct {
+	ExternalDns   types.Bool   `tfsdk:"external_dns"`
+	ZoneActive    types.Bool   `tfsdk:"zone_active"`
+	ZoneId        types.String `tfsdk:"zone_id"`
+	ZoneName      types.String `tfsdk:"zone_name"`
+	ZoneProtected types.Bool   `tfsdk:"zone_protected"`
+	ZoneType      types.String `tfsdk:"zone_type"`
+}
+
 func (r *dnsZoneResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_dns_zone"
 }
 
-func (r *dnsZoneResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	s := resource_dns_zone.DnsZoneResourceSchema(ctx)
-	s.MarkdownDescription = "Manages a DNS zone on the Gigahost account."
-
-	zoneName, ok := s.Attributes["zone_name"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_name" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
+func (r *dnsZoneResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Manages a DNS zone on the Gigahost account.",
+		Attributes: map[string]schema.Attribute{
+			"external_dns": schema.BoolAttribute{
+				Computed:            true,
+				Description:         "Whether the zone is served by external nameservers.",
+				MarkdownDescription: "Whether the zone is served by external nameservers.",
+			},
+			"zone_active": schema.BoolAttribute{
+				Computed:            true,
+				Description:         "Whether the zone is active.",
+				MarkdownDescription: "Whether the zone is active.",
+			},
+			"zone_id": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Zone id.",
+				MarkdownDescription: "Zone id.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"zone_name": schema.StringAttribute{
+				Required:            true,
+				Description:         "Domain name.",
+				MarkdownDescription: "Domain name.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"zone_protected": schema.BoolAttribute{
+				Computed:            true,
+				Description:         "Whether the zone is protected against deletion.",
+				MarkdownDescription: "Whether the zone is protected against deletion.",
+			},
+			"zone_type": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "Zone type (NATIVE, MASTER, or SLAVE).",
+				MarkdownDescription: "Zone type (NATIVE, MASTER, or SLAVE).",
+				Default:             stringdefault.StaticString("NATIVE"),
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+		},
 	}
-	zoneName.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	s.Attributes["zone_name"] = zoneName
-
-	zoneType, ok := s.Attributes["zone_type"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_type" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
-	}
-	zoneType.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	s.Attributes["zone_type"] = zoneType
-
-	zoneID, ok := s.Attributes["zone_id"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_id" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
-	}
-	zoneID.PlanModifiers = []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
-	s.Attributes["zone_id"] = zoneID
-
-	resp.Schema = s
 }
 
 func (r *dnsZoneResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -83,7 +104,7 @@ func (r *dnsZoneResource) Configure(_ context.Context, req resource.ConfigureReq
 }
 
 func (r *dnsZoneResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan resource_dns_zone.DnsZoneModel
+	var plan dnsZoneResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -103,7 +124,7 @@ func (r *dnsZoneResource) Create(ctx context.Context, req resource.CreateRequest
 }
 
 func (r *dnsZoneResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state resource_dns_zone.DnsZoneModel
+	var state dnsZoneResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -139,7 +160,7 @@ func (r *dnsZoneResource) Update(_ context.Context, _ resource.UpdateRequest, re
 }
 
 func (r *dnsZoneResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state resource_dns_zone.DnsZoneModel
+	var state dnsZoneResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -154,8 +175,8 @@ func (r *dnsZoneResource) ImportState(ctx context.Context, req resource.ImportSt
 	resource.ImportStatePassthroughID(ctx, path.Root("zone_id"), req, resp)
 }
 
-func dnsZoneToModel(z *client.DnsZone) resource_dns_zone.DnsZoneModel {
-	return resource_dns_zone.DnsZoneModel{
+func dnsZoneToModel(z *client.DnsZone) dnsZoneResourceModel {
+	return dnsZoneResourceModel{
 		ZoneId:        types.StringValue(z.ZoneID),
 		ZoneName:      types.StringValue(z.ZoneName),
 		ZoneType:      types.StringValue(z.ZoneType),

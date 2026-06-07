@@ -1,69 +1,6 @@
 provider:
   name: gigahost
 
-resources:
-  dns_zone:
-    create:
-      path: /dns/zones
-      method: POST
-    read:
-      path: /dns/zones/{id}
-      method: GET
-    delete:
-      path: /dns/zones/{id}
-      method: DELETE
-    schema:
-      attributes:
-        aliases:
-          id: zone_id
-
-  ssh_key:
-    create:
-      path: /account/sshkey
-      method: POST
-    read:
-      path: /account/sshkey/{id}
-      method: GET
-    delete:
-      path: /account/sshkey/{id}
-      method: DELETE
-    schema:
-      attributes:
-        aliases:
-          id: key_id
-
-  dns_record:
-    create:
-      path: /dns/zones/{zone_id}/records
-      method: POST
-    read:
-      path: /dns/zones/{zone_id}/records/{id}
-      method: GET
-    update:
-      path: /dns/zones/{zone_id}/records/{id}
-      method: PUT
-    delete:
-      path: /dns/zones/{zone_id}/records/{id}
-      method: DELETE
-    schema:
-      attributes:
-        aliases:
-          id: record_id
-
-  dns_redirect:
-    create:
-      path: /dns/zones/{zone_id}/redirect
-      method: POST
-    read:
-      path: /dns/zones/{zone_id}/redirect/{source}
-      method: GET
-    update:
-      path: /dns/zones/{zone_id}/redirect/{source}
-      method: PUT
-    delete:
-      path: /dns/zones/{zone_id}/redirect/{source}
-      method: DELETE
-
 data_sources:
   account:
     read:
@@ -98,4 +35,9 @@ data_sources:
   dns_records:
     read:
       path: /dns/zones/{zone_id}/records
+      method: GET
+
+  server_catalog:
+    read:
+      path: /deploy/servers
       method: GET

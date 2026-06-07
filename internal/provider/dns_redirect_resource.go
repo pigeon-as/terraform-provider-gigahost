@@ -10,11 +10,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
-	"github.com/pigeon-as/terraform-provider-gigahost/internal/resource_dns_redirect"
 )
 
 var (
@@ -31,36 +31,47 @@ type dnsRedirectResource struct {
 	client *client.Client
 }
 
+type dnsRedirectResourceModel struct {
+	Enabled   types.Bool   `tfsdk:"enabled"`
+	Source    types.String `tfsdk:"source"`
+	TargetUrl types.String `tfsdk:"target_url"`
+	ZoneId    types.String `tfsdk:"zone_id"`
+}
+
 func (r *dnsRedirectResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_dns_redirect"
 }
 
-func (r *dnsRedirectResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	s := resource_dns_redirect.DnsRedirectResourceSchema(ctx)
-	s.MarkdownDescription = "Manages an HTTP redirect for a Gigahost DNS zone."
-
-	zoneID, ok := s.Attributes["zone_id"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_id" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
+func (r *dnsRedirectResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Manages an HTTP redirect for a Gigahost DNS zone.",
+		Attributes: map[string]schema.Attribute{
+			"enabled": schema.BoolAttribute{
+				Computed:            true,
+				Description:         "Whether the redirect is active.",
+				MarkdownDescription: "Whether the redirect is active.",
+			},
+			"source": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "Subdomain the redirect applies to; defaults to \"@\" (the zone root).",
+				MarkdownDescription: "Subdomain the redirect applies to; defaults to \"@\" (the zone root).",
+				Default:             stringdefault.StaticString("@"),
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"target_url": schema.StringAttribute{
+				Required:            true,
+				Description:         "URL that requests are redirected to.",
+				MarkdownDescription: "URL that requests are redirected to.",
+			},
+			"zone_id": schema.StringAttribute{
+				Required:            true,
+				Description:         "Id of the DNS zone that contains the redirect.",
+				MarkdownDescription: "Id of the DNS zone that contains the redirect.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+		},
 	}
-	zoneID.Required = true
-	zoneID.Optional = false
-	zoneID.Computed = false
-	zoneID.Description = "Id of the DNS zone that contains the redirect."
-	zoneID.MarkdownDescription = zoneID.Description
-	zoneID.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	s.Attributes["zone_id"] = zoneID
-
-	source, ok := s.Attributes["source"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "source" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
-	}
-	source.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	s.Attributes["source"] = source
-
-	resp.Schema = s
 }
 
 func (r *dnsRedirectResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -81,7 +92,7 @@ func (r *dnsRedirectResource) Configure(_ context.Context, req resource.Configur
 }
 
 func (r *dnsRedirectResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan resource_dns_redirect.DnsRedirectModel
+	var plan dnsRedirectResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -99,7 +110,7 @@ func (r *dnsRedirectResource) Create(ctx context.Context, req resource.CreateReq
 }
 
 func (r *dnsRedirectResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state resource_dns_redirect.DnsRedirectModel
+	var state dnsRedirectResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -121,7 +132,7 @@ func (r *dnsRedirectResource) Read(ctx context.Context, req resource.ReadRequest
 }
 
 func (r *dnsRedirectResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan resource_dns_redirect.DnsRedirectModel
+	var plan dnsRedirectResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -139,7 +150,7 @@ func (r *dnsRedirectResource) Update(ctx context.Context, req resource.UpdateReq
 }
 
 func (r *dnsRedirectResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state resource_dns_redirect.DnsRedirectModel
+	var state dnsRedirectResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return

@@ -1,4 +1,3 @@
-# Manage a DNS record within a zone.
 resource "gigahost_dns_zone" "example" {
   zone_name = "example.com"
 }

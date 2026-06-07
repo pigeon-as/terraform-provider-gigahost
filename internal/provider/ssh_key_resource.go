@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
-	"github.com/pigeon-as/terraform-provider-gigahost/internal/resource_ssh_key"
 )
 
 var (
@@ -30,47 +29,47 @@ type sshKeyResource struct {
 	client *client.Client
 }
 
+type sshKeyResourceModel struct {
+	KeyAdded types.String `tfsdk:"key_added"`
+	KeyData  types.String `tfsdk:"key_data"`
+	KeyId    types.String `tfsdk:"key_id"`
+	KeyName  types.String `tfsdk:"key_name"`
+}
+
 func (r *sshKeyResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_ssh_key"
 }
 
-func (r *sshKeyResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	s := resource_ssh_key.SshKeyResourceSchema(ctx)
-	s.MarkdownDescription = "Manages an SSH key on the Gigahost account."
-
-	keyName, ok := s.Attributes["key_name"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_name" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
+func (r *sshKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Manages an SSH key on the Gigahost account.",
+		Attributes: map[string]schema.Attribute{
+			"key_added": schema.StringAttribute{
+				Computed:            true,
+				Description:         "When the key was added (Unix timestamp, string-encoded).",
+				MarkdownDescription: "When the key was added (Unix timestamp, string-encoded).",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"key_data": schema.StringAttribute{
+				Required:            true,
+				Description:         "The OpenSSH public key material.",
+				MarkdownDescription: "The OpenSSH public key material.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"key_id": schema.StringAttribute{
+				Computed:            true,
+				Description:         "SSH key id.",
+				MarkdownDescription: "SSH key id.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"key_name": schema.StringAttribute{
+				Required:            true,
+				Description:         "Label for the SSH key.",
+				MarkdownDescription: "Label for the SSH key.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+		},
 	}
-	keyName.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	s.Attributes["key_name"] = keyName
-
-	keyData, ok := s.Attributes["key_data"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_data" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
-	}
-	keyData.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	s.Attributes["key_data"] = keyData
-
-	keyID, ok := s.Attributes["key_id"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_id" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
-	}
-	keyID.PlanModifiers = []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
-	s.Attributes["key_id"] = keyID
-
-	keyAdded, ok := s.Attributes["key_added"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "key_added" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
-	}
-	keyAdded.PlanModifiers = []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
-	s.Attributes["key_added"] = keyAdded
-
-	resp.Schema = s
 }
 
 func (r *sshKeyResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -91,7 +90,7 @@ func (r *sshKeyResource) Configure(_ context.Context, req resource.ConfigureRequ
 }
 
 func (r *sshKeyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan resource_ssh_key.SshKeyModel
+	var plan sshKeyResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -110,7 +109,7 @@ func (r *sshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 }
 
 func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state resource_ssh_key.SshKeyModel
+	var state sshKeyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -140,7 +139,7 @@ func (r *sshKeyResource) Update(_ context.Context, _ resource.UpdateRequest, res
 }
 
 func (r *sshKeyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state resource_ssh_key.SshKeyModel
+	var state sshKeyResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return

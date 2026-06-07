@@ -118,6 +118,7 @@ func (p *GigahostProvider) Resources(_ context.Context) []func() resource.Resour
 		NewDNSRecordResource,
 		NewDNSRedirectResource,
 		NewSSHKeyResource,
+		NewServerResource,
 	}
 }
 
@@ -127,6 +128,8 @@ func (p *GigahostProvider) DataSources(_ context.Context) []func() datasource.Da
 		NewSSHKeysDataSource,
 		NewDNSZonesDataSource,
 		NewDNSRecordsDataSource,
+		NewServerCatalogDataSource,
+		NewOSDataSource,
 	}
 }
 

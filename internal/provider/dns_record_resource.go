@@ -9,12 +9,13 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
-	"github.com/pigeon-as/terraform-provider-gigahost/internal/resource_dns_record"
 )
 
 var (
@@ -31,36 +32,68 @@ type dnsRecordResource struct {
 	client *client.Client
 }
 
+type dnsRecordResourceModel struct {
+	RecordId       types.String `tfsdk:"record_id"`
+	RecordName     types.String `tfsdk:"record_name"`
+	RecordPriority types.Int64  `tfsdk:"record_priority"`
+	RecordTtl      types.Int64  `tfsdk:"record_ttl"`
+	RecordType     types.String `tfsdk:"record_type"`
+	RecordValue    types.String `tfsdk:"record_value"`
+	ZoneId         types.String `tfsdk:"zone_id"`
+}
+
 func (r *dnsRecordResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_dns_record"
 }
 
-func (r *dnsRecordResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	s := resource_dns_record.DnsRecordResourceSchema(ctx)
-	s.MarkdownDescription = "Manages a DNS record within a Gigahost DNS zone."
-
-	zoneID, ok := s.Attributes["zone_id"].(schema.StringAttribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "zone_id" is not a string attribute. This is a bug in the provider, please report it.`)
-		return
+func (r *dnsRecordResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Manages a DNS record within a Gigahost DNS zone.",
+		Attributes: map[string]schema.Attribute{
+			"record_id": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Record id.",
+				MarkdownDescription: "Record id.",
+			},
+			"record_name": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "Record name (host); defaults to \"@\".",
+				MarkdownDescription: "Record name (host); defaults to \"@\".",
+				Default:             stringdefault.StaticString("@"),
+			},
+			"record_priority": schema.Int64Attribute{
+				Optional:            true,
+				Description:         "Priority (used by MX and SRV records).",
+				MarkdownDescription: "Priority (used by MX and SRV records).",
+			},
+			"record_ttl": schema.Int64Attribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "Time to live, in seconds; defaults to 3600.",
+				MarkdownDescription: "Time to live, in seconds; defaults to 3600.",
+				Default:             int64default.StaticInt64(3600),
+			},
+			"record_type": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "Record type; defaults to \"A\".",
+				MarkdownDescription: "Record type; defaults to \"A\".",
+				Default:             stringdefault.StaticString("A"),
+			},
+			"record_value": schema.StringAttribute{
+				Required:            true,
+				Description:         "Record value (content).",
+				MarkdownDescription: "Record value (content).",
+			},
+			"zone_id": schema.StringAttribute{
+				Required:            true,
+				Description:         "Id of the DNS zone that contains the record.",
+				MarkdownDescription: "Id of the DNS zone that contains the record.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+		},
 	}
-	zoneID.Required = true
-	zoneID.Optional = false
-	zoneID.Computed = false
-	zoneID.Description = "Id of the DNS zone that contains the record."
-	zoneID.MarkdownDescription = zoneID.Description
-	zoneID.PlanModifiers = []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	s.Attributes["zone_id"] = zoneID
-
-	recordPriority, ok := s.Attributes["record_priority"].(schema.Int64Attribute)
-	if !ok {
-		resp.Diagnostics.AddError("Unexpected Schema Type", `Generated attribute "record_priority" is not an int64 attribute. This is a bug in the provider, please report it.`)
-		return
-	}
-	recordPriority.Computed = false
-	s.Attributes["record_priority"] = recordPriority
-
-	resp.Schema = s
 }
 
 func (r *dnsRecordResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -81,7 +114,7 @@ func (r *dnsRecordResource) Configure(_ context.Context, req resource.ConfigureR
 }
 
 func (r *dnsRecordResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var plan resource_dns_record.DnsRecordModel
+	var plan dnsRecordResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -99,7 +132,7 @@ func (r *dnsRecordResource) Create(ctx context.Context, req resource.CreateReque
 }
 
 func (r *dnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var state resource_dns_record.DnsRecordModel
+	var state dnsRecordResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -134,7 +167,7 @@ func (r *dnsRecordResource) Read(ctx context.Context, req resource.ReadRequest, 
 }
 
 func (r *dnsRecordResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan, state resource_dns_record.DnsRecordModel
+	var plan, state dnsRecordResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -153,7 +186,7 @@ func (r *dnsRecordResource) Update(ctx context.Context, req resource.UpdateReque
 }
 
 func (r *dnsRecordResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state resource_dns_record.DnsRecordModel
+	var state dnsRecordResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -186,7 +219,7 @@ func (r *dnsRecordResource) ImportState(ctx context.Context, req resource.Import
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("record_id"), recordID)...)
 }
 
-func recordRequest(m resource_dns_record.DnsRecordModel) client.RecordRequest {
+func recordRequest(m dnsRecordResourceModel) client.RecordRequest {
 	body := client.RecordRequest{
 		RecordName:  m.RecordName.ValueString(),
 		RecordType:  m.RecordType.ValueString(),

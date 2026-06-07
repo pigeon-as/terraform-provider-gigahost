@@ -13,7 +13,6 @@ Retrieves the authenticated Gigahost account profile.
 ## Example Usage
 
 ```terraform
-# Look up the authenticated Gigahost account profile.
 data "gigahost_account" "current" {}
 
 output "account_name" {

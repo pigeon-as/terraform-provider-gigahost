@@ -32,25 +32,9 @@ paths:
               $ref: '#/components/schemas/CreateSSHKeyRequest'
       responses:
         "200":
-          description: The SSH key was created. The client resolves it by key_data from GET /account.
+          description: The SSH key was created.
 
   /account/sshkey/{id}:
-    get:
-      operationId: getSSHKey
-      description: Logical read; the client reads GET /account and filters sshkeys by id.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: The SSH key.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SSHKey'
     delete:
       operationId: deleteSSHKey
       parameters:
@@ -83,25 +67,9 @@ paths:
               $ref: '#/components/schemas/CreateZoneRequest'
       responses:
         "201":
-          description: The zone was created. The client resolves it by name from GET /dns/zones.
+          description: The zone was created.
 
   /dns/zones/{id}:
-    get:
-      operationId: getDnsZone
-      description: Logical read; the client reads GET /dns/zones and filters by id.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: The DNS zone.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DnsZone'
     delete:
       operationId: deleteDnsZone
       parameters:
@@ -143,33 +111,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRecordRequest'
+              $ref: '#/components/schemas/RecordRequest'
       responses:
         "201":
-          description: The record was created. The client resolves it by name, type, and value from GET /dns/zones/{zone_id}/records.
+          description: The record was created.
 
-  /dns/zones/{zone_id}/records/{id}:
-    get:
-      operationId: getDnsRecord
-      description: Logical read; the client reads GET /dns/zones/{zone_id}/records and filters by id.
-      parameters:
-        - name: zone_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: The DNS record.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DnsRecord'
+  /dns/zones/{zone_id}/records/{record_id}:
     put:
       operationId: updateDnsRecord
       parameters:
@@ -178,7 +125,7 @@ paths:
           required: true
           schema:
             type: string
-        - name: id
+        - name: record_id
           in: path
           required: true
           schema:
@@ -188,10 +135,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRecordRequest'
+              $ref: '#/components/schemas/RecordRequest'
       responses:
         "200":
-          description: The record was updated. The client re-resolves it by name, type, and value (the id changes on update).
+          description: The record was updated.
     delete:
       operationId: deleteDnsRecord
       parameters:
@@ -200,8 +147,23 @@ paths:
           required: true
           schema:
             type: string
-        - name: id
+        - name: record_id
           in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: value
+          in: query
           required: true
           schema:
             type: string
@@ -210,6 +172,23 @@ paths:
           description: The record was deleted.
 
   /dns/zones/{zone_id}/redirect:
+    get:
+      operationId: listDnsRedirects
+      parameters:
+        - name: zone_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The redirects in the zone.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DnsRedirect'
     post:
       operationId: createDnsRedirect
       parameters:
@@ -223,43 +202,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRedirectRequest'
+              $ref: '#/components/schemas/RedirectRequest'
       responses:
         "201":
-          description: The redirect was created. The client resolves it by source from GET /dns/zones/{zone_id}/redirect.
-
-  /dns/zones/{zone_id}/redirect/{source}:
-    get:
-      operationId: getDnsRedirect
-      description: Logical read; the client reads GET /dns/zones/{zone_id}/redirect and filters by source.
-      parameters:
-        - name: zone_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: source
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: The redirect.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DnsRedirect'
+          description: The redirect was created.
     put:
       operationId: updateDnsRedirect
-      description: The client sends PUT /dns/zones/{zone_id}/redirect with the source in the request body.
       parameters:
         - name: zone_id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: source
           in: path
           required: true
           schema:
@@ -269,13 +219,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRedirectRequest'
+              $ref: '#/components/schemas/RedirectRequest'
       responses:
         "200":
           description: The redirect was updated.
     delete:
       operationId: deleteDnsRedirect
-      description: The client sends DELETE /dns/zones/{zone_id}/redirect with the source as a query parameter.
       parameters:
         - name: zone_id
           in: path
@@ -283,13 +232,128 @@ paths:
           schema:
             type: string
         - name: source
-          in: path
+          in: query
           required: true
           schema:
             type: string
       responses:
         "200":
           description: The redirect was deleted.
+
+  /deploy/servers:
+    get:
+      operationId: getDeployCatalog
+      description: The hourly cloud server catalog.
+      responses:
+        "200":
+          description: The deployable server catalog.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployCatalog'
+    post:
+      operationId: deployServer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployServerRequest'
+      responses:
+        "200":
+          description: The deploy order was placed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResult'
+
+  /deploy/status:
+    get:
+      operationId: getDeployStatus
+      parameters:
+        - name: ids
+          in: query
+          required: true
+          description: Comma-separated order ids.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deploy progress for the given orders.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployStatus'
+
+  /reinstall/distro:
+    get:
+      operationId: listDistros
+      responses:
+        "200":
+          description: The available OS distributions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Distro'
+
+  /reinstall/distro/{id}:
+    get:
+      operationId: listDistroVersions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The deployable OS images (versions) in the distribution.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OS'
+
+  /servers/{id}/name:
+    put:
+      operationId: updateServerName
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerNameRequest'
+      responses:
+        "200":
+          description: The server was renamed.
+
+  /servers/{id}/cancel:
+    post:
+      operationId: cancelServer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelServerRequest'
+      responses:
+        "200":
+          description: The server was cancelled.
 
 components:
   securitySchemes:
@@ -356,13 +420,13 @@ components:
     CreateSSHKeyRequest:
       type: object
       required:
-        - key_name
-        - key_data
+        - name
+        - data
       properties:
-        key_name:
+        name:
           type: string
           description: Label for the SSH key.
-        key_data:
+        data:
           type: string
           description: The OpenSSH public key material.
 
@@ -442,14 +506,11 @@ components:
           nullable: true
           description: Priority (used by MX and SRV records).
 
-    CreateRecordRequest:
+    RecordRequest:
       type: object
       required:
         - record_value
       properties:
-        record_value:
-          type: string
-          description: Record value (content).
         record_name:
           type: string
           default: "@"
@@ -458,6 +519,9 @@ components:
           type: string
           default: "A"
           description: Record type; defaults to "A".
+        record_value:
+          type: string
+          description: Record value (content).
         record_ttl:
           type: integer
           default: 3600
@@ -479,15 +543,293 @@ components:
           type: boolean
           description: Whether the redirect is active.
 
-    CreateRedirectRequest:
+    RedirectRequest:
       type: object
       required:
         - target_url
       properties:
-        target_url:
-          type: string
-          description: URL that requests are redirected to.
         source:
           type: string
           default: "@"
           description: Subdomain the redirect applies to; defaults to "@" (the zone root).
+        target_url:
+          type: string
+          description: URL that requests are redirected to.
+
+    DeployCatalog:
+      type: object
+      properties:
+        tiers:
+          type: array
+          description: Server product tiers available for hourly deployment.
+          items:
+            $ref: '#/components/schemas/DeployTier'
+        regions:
+          type: array
+          description: Regions servers can be deployed in.
+          items:
+            $ref: '#/components/schemas/DeployRegion'
+        currency:
+          type: string
+          description: Currency of the catalog pricing.
+
+    DeployTier:
+      type: object
+      properties:
+        group_id:
+          type: integer
+          description: Tier (product group) id.
+        group_name:
+          type: string
+          description: Tier name.
+        products:
+          type: array
+          description: Products in the tier.
+          items:
+            $ref: '#/components/schemas/DeployProduct'
+
+    DeployProduct:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          description: Product id, used when deploying.
+        product_hash:
+          type: string
+          description: Product hash.
+        product_name:
+          type: string
+          description: Product name.
+        vm_cores:
+          type: string
+          description: Number of virtual CPU cores.
+        vm_memory:
+          type: string
+          description: Memory, in GB.
+        vm_storage:
+          type: string
+          description: Storage, in GB.
+        vm_bw:
+          type: string
+          description: Bandwidth allowance.
+        vm_bw_type:
+          type: string
+          description: Bandwidth allowance type.
+        price_id:
+          type: integer
+          description: Price id for the product, used when deploying.
+        rate_hourly:
+          type: number
+          format: double
+          description: Hourly rate.
+        rate_monthly:
+          type: integer
+          description: Monthly cap (the most charged per month).
+        region_ids:
+          type: array
+          description: Ids of the regions this product can be deployed in.
+          items:
+            type: integer
+
+    DeployRegion:
+      type: object
+      properties:
+        region_id:
+          type: string
+          description: Region id.
+        region_name:
+          type: string
+          description: Region name.
+        region_name_short:
+          type: string
+          description: Short region name.
+        region_country:
+          type: string
+          description: Region country.
+        region_active:
+          type: boolean
+          description: Whether the region is active.
+
+    DeployServerRequest:
+      type: object
+      required:
+        - pid
+        - price_id
+        - region_id
+      properties:
+        pid:
+          type: integer
+          description: Product id to deploy.
+        price_id:
+          type: integer
+          description: Price id for the product.
+        region_id:
+          type: integer
+          description: Region to deploy in.
+        quantity:
+          type: integer
+          default: 1
+          description: Number of servers to deploy.
+        os_id:
+          type: integer
+          description: OS image (version) id to install.
+        iso_id:
+          type: integer
+          description: ISO id to boot from, instead of an OS image.
+        rescue:
+          type: integer
+          description: Set to 1 to deploy into rescue mode.
+        hostnames:
+          type: array
+          description: Hostnames for the deployed servers.
+          items:
+            type: string
+        ssh_keys:
+          type: array
+          description: Ids of SSH keys to install.
+          items:
+            type: integer
+        backups:
+          type: integer
+          description: Set to 1 to enable backups.
+
+    DeployResult:
+      type: object
+      properties:
+        order_ids:
+          type: array
+          description: Ids of the placed orders.
+          items:
+            type: integer
+        order_numbers:
+          type: array
+          description: Human-facing order numbers.
+          items:
+            type: integer
+        rate_hourly:
+          type: number
+          format: double
+          description: Hourly rate for the order.
+        monthly_cap:
+          type: integer
+          description: Monthly cap for the order.
+        currency:
+          type: string
+          description: Currency of the pricing.
+
+    DeployStatus:
+      type: object
+      properties:
+        servers:
+          type: array
+          description: Per-server deploy progress.
+          items:
+            $ref: '#/components/schemas/DeployStatusServer'
+        all_ready:
+          type: boolean
+          description: Whether every server in the request is ready.
+
+    DeployStatusServer:
+      type: object
+      properties:
+        order_id:
+          type: integer
+          description: Order id.
+        order_number:
+          type: integer
+          description: Human-facing order number.
+        hostname:
+          type: string
+          description: Server hostname.
+        srv_id:
+          type: integer
+          description: Server id, once provisioned.
+        ip:
+          type: string
+          description: Primary IPv4 address.
+        ipv6:
+          type: string
+          description: Primary IPv6 address.
+        status:
+          type: string
+          description: Deploy status (waiting, deploying, installing, ready, rescue, iso).
+        password:
+          type: string
+          description: Initial root password.
+
+    Distro:
+      type: object
+      properties:
+        dist_id:
+          type: string
+          description: Distribution id.
+        dist_name:
+          type: string
+          description: Distribution name (e.g. "Ubuntu").
+        dist_value:
+          type: string
+          description: Distribution slug.
+
+    OS:
+      type: object
+      properties:
+        os_id:
+          type: string
+          description: OS image (version) id; the value passed as os_id when deploying.
+        dist_id:
+          type: string
+          description: Id of the parent distribution.
+        os_name:
+          type: string
+          description: OS image name (e.g. "Ubuntu 24.04").
+        os_release:
+          type: string
+          description: Release/version number.
+        os_dist:
+          type: string
+          description: Distribution codename.
+        os_arch:
+          type: string
+          description: Architecture.
+        os_minram:
+          type: string
+          description: Minimum required RAM.
+        os_custom_partition:
+          type: boolean
+          description: Whether the image supports custom partitioning.
+        os_single_disk_only:
+          type: boolean
+          description: Whether the image must be installed on a single disk.
+        os_support_raid:
+          type: boolean
+          description: Whether the image supports RAID.
+        os_dedicated_only:
+          type: boolean
+          description: Whether the image is only deployable on dedicated servers.
+        os_template:
+          type: string
+          description: Internal template identifier (usually empty).
+        os_slow_install:
+          type: boolean
+          description: Whether the image is slow to install.
+
+    ServerNameRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: New display name for the server.
+
+    CancelServerRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          description: Reason for cancellation.
+        early_termination:
+          type: integer
+          description: Set to 1 to terminate immediately rather than at period end.
