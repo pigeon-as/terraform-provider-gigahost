@@ -124,19 +124,19 @@ func (c *Client) Deploy(ctx context.Context, in DeployInput) (*DeployResult, err
 }
 
 type DeployStatusServer struct {
-	OrderID     int64  `json:"order_id"`
-	OrderNumber int64  `json:"order_number"`
-	Hostname    string `json:"hostname"`
-	SrvID       int64  `json:"srv_id"`
-	IP          string `json:"ip"`
-	IPv6        string `json:"ipv6"`
-	Status      string `json:"status"`
-	Password    string `json:"password"`
+	OrderID     flexInt64 `json:"order_id"`
+	OrderNumber flexInt64 `json:"order_number"`
+	Hostname    string    `json:"hostname"`
+	SrvID       flexInt64 `json:"srv_id"`
+	IP          string    `json:"ip"`
+	IPv6        string    `json:"ipv6"`
+	Status      string    `json:"status"`
+	Password    string    `json:"password"`
 }
 
 type DeployStatus struct {
 	Servers  []DeployStatusServer `json:"servers"`
-	AllReady bool                 `json:"all_ready"`
+	AllReady flexBool             `json:"all_ready"`
 }
 
 func (c *Client) GetDeployStatus(ctx context.Context, orderIDs []int64) (*DeployStatus, error) {

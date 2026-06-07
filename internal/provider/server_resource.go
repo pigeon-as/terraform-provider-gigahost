@@ -1,0 +1,431 @@
+package provider
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
+)
+
+const (
+	serverDeployTimeout      = 30 * time.Minute
+	serverDeployPollInterval = 5 * time.Second
+)
+
+var (
+	_ resource.Resource                = &serverResource{}
+	_ resource.ResourceWithConfigure   = &serverResource{}
+	_ resource.ResourceWithModifyPlan  = &serverResource{}
+	_ resource.ResourceWithImportState = &serverResource{}
+)
+
+func NewServerResource() resource.Resource {
+	return &serverResource{}
+}
+
+type serverResource struct {
+	client *client.Client
+}
+
+type serverResourceModel struct {
+	Name         types.String `tfsdk:"name"`
+	ProductName  types.String `tfsdk:"product_name"`
+	Region       types.String `tfsdk:"region"`
+	OsDistro     types.String `tfsdk:"os_distro"`
+	OsVersion    types.String `tfsdk:"os_version"`
+	Rescue       types.Bool   `tfsdk:"rescue"`
+	Hostname     types.String `tfsdk:"hostname"`
+	SshKeys      types.List   `tfsdk:"ssh_keys"`
+	Backups      types.Bool   `tfsdk:"backups"`
+	ProductId    types.Int64  `tfsdk:"product_id"`
+	PriceId      types.Int64  `tfsdk:"price_id"`
+	RegionId     types.Int64  `tfsdk:"region_id"`
+	OsId         types.Int64  `tfsdk:"os_id"`
+	ServerId     types.String `tfsdk:"server_id"`
+	OrderId      types.Int64  `tfsdk:"order_id"`
+	Ipv4         types.String `tfsdk:"ipv4"`
+	Ipv6         types.String `tfsdk:"ipv6"`
+	RootPassword types.String `tfsdk:"root_password"`
+}
+
+func (r *serverResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_server"
+}
+
+func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		MarkdownDescription: "Deploys and manages an hourly Gigahost cloud server.",
+		Attributes: map[string]schema.Attribute{
+			"name": schema.StringAttribute{
+				Optional:            true,
+				Description:         "Descriptive name for the server.",
+				MarkdownDescription: "Descriptive name for the server.",
+			},
+			"product_name": schema.StringAttribute{
+				Required:            true,
+				Description:         "Product name from the catalog, e.g. \"KVM Value VPS 4GB\".",
+				MarkdownDescription: "Product name from the catalog, e.g. \"KVM Value VPS 4GB\".",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"region": schema.StringAttribute{
+				Required:            true,
+				Description:         "Region name to deploy in, e.g. \"Sandefjord\".",
+				MarkdownDescription: "Region name to deploy in, e.g. \"Sandefjord\".",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"os_distro": schema.StringAttribute{
+				Optional:            true,
+				Description:         "OS distribution to install, e.g. \"Ubuntu\". Provide os_distro + os_version, or rescue.",
+				MarkdownDescription: "OS distribution to install, e.g. \"Ubuntu\". Provide os_distro + os_version, or rescue.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"os_version": schema.StringAttribute{
+				Optional:            true,
+				Description:         "OS version to install, e.g. \"24.04\" (matches the OS name or release codename).",
+				MarkdownDescription: "OS version to install, e.g. \"24.04\" (matches the OS name or release codename).",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"rescue": schema.BoolAttribute{
+				Optional:            true,
+				Description:         "Boot the server into rescue mode instead of installing an OS.",
+				MarkdownDescription: "Boot the server into rescue mode instead of installing an OS.",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+			},
+			"hostname": schema.StringAttribute{
+				Optional:            true,
+				Description:         "Requested hostname.",
+				MarkdownDescription: "Requested hostname.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
+			"ssh_keys": schema.ListAttribute{
+				ElementType:         types.Int64Type,
+				Optional:            true,
+				Description:         "Ids of SSH keys to authorize on the server.",
+				MarkdownDescription: "Ids of SSH keys to authorize on the server.",
+				PlanModifiers:       []planmodifier.List{listplanmodifier.RequiresReplace()},
+			},
+			"backups": schema.BoolAttribute{
+				Optional:            true,
+				Description:         "Whether to enable daily backups (adds 25% to the price).",
+				MarkdownDescription: "Whether to enable daily backups (adds 25% to the price).",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+			},
+			"product_id": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Resolved product id (from tier + memory).",
+				MarkdownDescription: "Resolved product id (from tier + memory).",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"price_id": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Resolved price id (from tier + memory).",
+				MarkdownDescription: "Resolved price id (from tier + memory).",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"region_id": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Resolved region id (from region).",
+				MarkdownDescription: "Resolved region id (from region).",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"os_id": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Resolved OS image id (from os_distro + os_version).",
+				MarkdownDescription: "Resolved OS image id (from os_distro + os_version).",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"server_id": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Server id (srv_id).",
+				MarkdownDescription: "Server id (srv_id).",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"order_id": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Id of the deployment order.",
+				MarkdownDescription: "Id of the deployment order.",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"ipv4": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Primary IPv4 address.",
+				MarkdownDescription: "Primary IPv4 address.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"ipv6": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Primary IPv6 address.",
+				MarkdownDescription: "Primary IPv6 address.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"root_password": schema.StringAttribute{
+				Computed:            true,
+				Sensitive:           true,
+				Description:         "Initial root password (only set when the server is deployed without an SSH key).",
+				MarkdownDescription: "Initial root password (only set when the server is deployed without an SSH key).",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+		},
+	}
+}
+
+func (r *serverResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	c, ok := req.ProviderData.(*client.Client)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *client.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+
+	r.client = c
+}
+
+func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() || r.client == nil {
+		return
+	}
+
+	var plan serverResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	needProduct := plan.ProductId.IsUnknown() && !plan.ProductName.IsUnknown()
+	needRegion := plan.RegionId.IsUnknown() && !plan.Region.IsUnknown()
+	needOS := plan.OsId.IsUnknown() && !plan.OsDistro.IsNull() && !plan.OsDistro.IsUnknown() && !plan.OsVersion.IsUnknown()
+
+	if needProduct || needRegion {
+		catalog, err := r.client.GetDeployCatalog(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
+			return
+		}
+		if needProduct {
+			productID, priceID, err := resolveProduct(catalog, plan.ProductName.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddAttributeError(path.Root("product_name"), "Invalid Server Product", err.Error())
+			} else {
+				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("product_id"), productID)...)
+				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("price_id"), priceID)...)
+			}
+		}
+		if needRegion {
+			regionID, err := resolveRegion(catalog, plan.Region.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddAttributeError(path.Root("region"), "Invalid Region", err.Error())
+			} else {
+				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("region_id"), regionID)...)
+			}
+		}
+	}
+
+	if needOS {
+		osCatalog, err := r.client.GetOSCatalog(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
+			return
+		}
+		osID, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddAttributeError(path.Root("os_distro"), "Invalid OS", err.Error())
+		} else {
+			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("os_id"), osID)...)
+		}
+	}
+}
+
+func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan serverResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	catalog, err := r.client.GetDeployCatalog(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
+		return
+	}
+
+	productID, priceID, err := resolveProduct(catalog, plan.ProductName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Server Product", err.Error())
+		return
+	}
+	regionID, err := resolveRegion(catalog, plan.Region.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid Region", err.Error())
+		return
+	}
+
+	osID := types.Int64Null()
+	var osIDPtr *int64
+	if !plan.OsDistro.IsNull() && plan.OsDistro.ValueString() != "" {
+		osCatalog, err := r.client.GetOSCatalog(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
+			return
+		}
+		id, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Invalid OS", err.Error())
+			return
+		}
+		osID = types.Int64Value(id)
+		idCopy := id
+		osIDPtr = &idCopy
+	}
+
+	var sshKeys []int64
+	if !plan.SshKeys.IsNull() && !plan.SshKeys.IsUnknown() {
+		resp.Diagnostics.Append(plan.SshKeys.ElementsAs(ctx, &sshKeys, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	in := client.DeployInput{
+		ProductID: productID,
+		PriceID:   priceID,
+		RegionID:  regionID,
+		OSID:      osIDPtr,
+		Rescue:    plan.Rescue.ValueBool(),
+		Hostname:  plan.Hostname.ValueString(),
+		SSHKeys:   sshKeys,
+		Backups:   plan.Backups.ValueBool(),
+	}
+
+	result, err := r.client.Deploy(ctx, in)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Deploy Gigahost Server", err.Error())
+		return
+	}
+	if len(result.OrderIDs) == 0 {
+		resp.Diagnostics.AddError("Unable to Deploy Gigahost Server", "the deploy API did not return an order id.")
+		return
+	}
+	orderID := result.OrderIDs[0]
+
+	server, err := r.waitForServer(ctx, orderID)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Deploy Gigahost Server", err.Error())
+		return
+	}
+	serverID := strconv.FormatInt(int64(server.SrvID), 10)
+
+	if !plan.Name.IsNull() && plan.Name.ValueString() != "" {
+		if err := r.client.UpdateServerName(ctx, serverID, plan.Name.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Unable to Set Gigahost Server Name", err.Error())
+			return
+		}
+	}
+
+	state := plan
+	state.ProductId = types.Int64Value(productID)
+	state.PriceId = types.Int64Value(priceID)
+	state.RegionId = types.Int64Value(regionID)
+	state.OsId = osID
+	state.ServerId = types.StringValue(serverID)
+	state.OrderId = types.Int64Value(orderID)
+	state.Ipv4 = types.StringValue(server.IP)
+	state.Ipv6 = types.StringValue(server.IPv6)
+	state.RootPassword = types.StringNull()
+	if server.Password != "" {
+		state.RootPassword = types.StringValue(server.Password)
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*client.DeployStatusServer, error) {
+	ctx, cancel := context.WithTimeout(ctx, serverDeployTimeout)
+	defer cancel()
+
+	ticker := time.NewTicker(serverDeployPollInterval)
+	defer ticker.Stop()
+
+	for {
+		status, err := r.client.GetDeployStatus(ctx, []int64{orderID})
+		if err != nil {
+			return nil, err
+		}
+		for i := range status.Servers {
+			if int64(status.Servers[i].OrderID) != orderID {
+				continue
+			}
+			switch status.Servers[i].Status {
+			case "ready", "rescue", "iso":
+				return &status.Servers[i], nil
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timed out waiting for server (order %d) to be ready: %w", orderID, ctx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state serverResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func (r *serverResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan, state serverResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !plan.Name.Equal(state.Name) {
+		if err := r.client.UpdateServerName(ctx, state.ServerId.ValueString(), plan.Name.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Unable to Update Gigahost Server Name", err.Error())
+			return
+		}
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state serverResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil {
+		resp.Diagnostics.AddError("Unable to Cancel Gigahost Server", err.Error())
+	}
+}
+
+func (r *serverResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("server_id"), req, resp)
+}
