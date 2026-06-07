@@ -193,6 +193,9 @@ func errorMessage(body []byte) string {
 		if env.Meta.Message != "" {
 			return env.Meta.Message
 		}
+		if env.Meta.Error != "" {
+			return env.Meta.Error
+		}
 		if env.Meta.StatusMessage != "" {
 			return env.Meta.StatusMessage
 		}
@@ -204,6 +207,7 @@ type meta struct {
 	Status        int    `json:"status"`
 	StatusMessage string `json:"status_message"`
 	Message       string `json:"message"`
+	Error         string `json:"error"`
 }
 
 type envelope struct {

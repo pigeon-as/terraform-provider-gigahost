@@ -38,8 +38,6 @@ func TestNewClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewClient: %v", err)
 		}
-		// The base path is normalized with a trailing slash so relative request
-		// paths resolve against it (the go-tfe pattern).
 		want := DefaultAddress + "/"
 		if c.baseURL.String() != want {
 			t.Errorf("baseURL = %q, want %q", c.baseURL.String(), want)
@@ -167,7 +165,6 @@ func TestCreateRecordResolve(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			// Create returns meta-only; the client resolves from the list.
 			_, _ = io.WriteString(w, `{"meta": {"status": 201}, "data": []}`)
 		default:
 			_, _ = io.WriteString(w, `{"meta": {"status": 200}, "data": [{"record_id": "r1", "record_name": "www", "record_type": "A", "record_value": "1.2.3.4", "record_ttl": 3600}]}`)
