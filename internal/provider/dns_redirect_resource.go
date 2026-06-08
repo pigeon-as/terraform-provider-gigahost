@@ -156,7 +156,7 @@ func (r *dnsRedirectResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	if err := r.client.DeleteRedirect(ctx, state.ZoneId.ValueString(), state.Source.ValueString()); err != nil {
+	if err := r.client.DeleteRedirect(ctx, state.ZoneId.ValueString(), state.Source.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
 		resp.Diagnostics.AddError("Unable to Delete Gigahost DNS Redirect", err.Error())
 	}
 }

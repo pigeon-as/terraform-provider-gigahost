@@ -145,7 +145,7 @@ func (r *sshKeyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	if err := r.client.DeleteSSHKey(ctx, state.KeyId.ValueString()); err != nil {
+	if err := r.client.DeleteSSHKey(ctx, state.KeyId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
 		resp.Diagnostics.AddError("Unable to Delete Gigahost SSH Key", err.Error())
 	}
 }

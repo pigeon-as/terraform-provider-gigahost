@@ -200,7 +200,7 @@ func (r *dnsRecordResource) Delete(ctx context.Context, req resource.DeleteReque
 		state.RecordType.ValueString(),
 		state.RecordValue.ValueString(),
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, client.ErrNotFound) {
 		resp.Diagnostics.AddError("Unable to Delete Gigahost DNS Record", err.Error())
 	}
 }

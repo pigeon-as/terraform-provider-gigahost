@@ -81,3 +81,12 @@ func resolveOS(catalog []client.OSCatalogEntry, distro, version string) (int64, 
 		return 0, fmt.Errorf("%d OS images match distro %q version %q (%s); narrow os_version", len(matches), distro, version, strings.Join(names, ", "))
 	}
 }
+
+func equalID(a, b string) bool {
+	if a == b {
+		return true
+	}
+	ai, errA := strconv.ParseInt(a, 10, 64)
+	bi, errB := strconv.ParseInt(b, 10, 64)
+	return errA == nil && errB == nil && ai == bi
+}

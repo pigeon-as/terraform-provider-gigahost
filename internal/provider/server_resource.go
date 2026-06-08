@@ -2,11 +2,13 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -27,10 +29,11 @@ const (
 )
 
 var (
-	_ resource.Resource                = &serverResource{}
-	_ resource.ResourceWithConfigure   = &serverResource{}
-	_ resource.ResourceWithModifyPlan  = &serverResource{}
-	_ resource.ResourceWithImportState = &serverResource{}
+	_ resource.Resource                     = &serverResource{}
+	_ resource.ResourceWithConfigure        = &serverResource{}
+	_ resource.ResourceWithConfigValidators = &serverResource{}
+	_ resource.ResourceWithModifyPlan       = &serverResource{}
+	_ resource.ResourceWithImportState      = &serverResource{}
 )
 
 func NewServerResource() resource.Resource {
@@ -68,6 +71,15 @@ type serverResourceModel struct {
 
 func (r *serverResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_server"
+}
+
+func (r *serverResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.RequiredTogether(
+			path.MatchRoot("os_distro"),
+			path.MatchRoot("os_version"),
+		),
+	}
 }
 
 func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -290,39 +302,59 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	catalog, err := r.client.GetDeployCatalog(ctx)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
-		return
-	}
-
-	productID, priceID, err := resolveProduct(catalog, plan.ProductName.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid Server Product", err.Error())
-		return
-	}
-	regionID, err := resolveRegion(catalog, plan.Region.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid Region", err.Error())
-		return
+	productID := plan.ProductId.ValueInt64()
+	priceID := plan.PriceId.ValueInt64()
+	regionID := plan.RegionId.ValueInt64()
+	if plan.ProductId.IsUnknown() || plan.RegionId.IsUnknown() {
+		catalog, err := r.client.GetDeployCatalog(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
+			return
+		}
+		if plan.ProductId.IsUnknown() {
+			productID, priceID, err = resolveProduct(catalog, plan.ProductName.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError("Invalid Server Product", err.Error())
+				return
+			}
+		}
+		if plan.RegionId.IsUnknown() {
+			regionID, err = resolveRegion(catalog, plan.Region.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError("Invalid Region", err.Error())
+				return
+			}
+		}
 	}
 
 	osID := types.Int64Null()
 	var osIDPtr *int64
 	if !plan.OsDistro.IsNull() && plan.OsDistro.ValueString() != "" {
-		osCatalog, err := r.client.GetOSCatalog(ctx)
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
-			return
+		if !plan.OsId.IsUnknown() && !plan.OsId.IsNull() {
+			osID = plan.OsId
+		} else {
+			osCatalog, err := r.client.GetOSCatalog(ctx)
+			if err != nil {
+				resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
+				return
+			}
+			id, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError("Invalid OS", err.Error())
+				return
+			}
+			osID = types.Int64Value(id)
 		}
-		id, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError("Invalid OS", err.Error())
-			return
-		}
-		osID = types.Int64Value(id)
-		idCopy := id
-		osIDPtr = &idCopy
+		v := osID.ValueInt64()
+		osIDPtr = &v
+	}
+
+	if osIDPtr == nil && !plan.Rescue.ValueBool() {
+		resp.Diagnostics.AddError(
+			"Missing OS or Rescue",
+			"Provide os_distro and os_version to install an OS, or set rescue = true.",
+		)
+		return
 	}
 
 	var sshKeys []int64
@@ -362,13 +394,6 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 	serverID := strconv.FormatInt(int64(server.SrvID), 10)
 
-	if !plan.Name.IsNull() && plan.Name.ValueString() != "" {
-		if err := r.client.UpdateServerName(ctx, serverID, plan.Name.ValueString()); err != nil {
-			resp.Diagnostics.AddError("Unable to Set Gigahost Server Name", err.Error())
-			return
-		}
-	}
-
 	state := plan
 	state.ProductId = types.Int64Value(productID)
 	state.PriceId = types.Int64Value(priceID)
@@ -389,6 +414,15 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	state.RateHourly = types.Float64Value(result.RateHourly)
 	state.MonthlyCap = types.Int64Value(result.MonthlyCap)
 	state.Currency = types.StringValue(result.Currency)
+
+	if !plan.Name.IsNull() && plan.Name.ValueString() != "" {
+		if err := r.client.UpdateServerName(ctx, serverID, plan.Name.ValueString()); err != nil {
+			state.Name = types.StringNull()
+			resp.Diagnostics.AddError("Unable to Set Gigahost Server Name", err.Error())
+			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+			return
+		}
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -448,7 +482,7 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 	var found *client.Server
 	for i := range servers {
-		if servers[i].SrvID == state.ServerId.ValueString() {
+		if equalID(servers[i].SrvID, state.ServerId.ValueString()) {
 			found = &servers[i]
 			break
 		}
@@ -525,7 +559,7 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil {
+	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
 		resp.Diagnostics.AddError("Unable to Cancel Gigahost Server", err.Error())
 	}
 }

@@ -257,7 +257,7 @@ func (d *serverDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 
 	var matches []client.Server
 	for _, s := range servers {
-		if !config.SrvId.IsNull() && s.SrvID != config.SrvId.ValueString() {
+		if !config.SrvId.IsNull() && !equalID(s.SrvID, config.SrvId.ValueString()) {
 			continue
 		}
 		if !config.SrvName.IsNull() && !strings.EqualFold(s.SrvName, config.SrvName.ValueString()) {

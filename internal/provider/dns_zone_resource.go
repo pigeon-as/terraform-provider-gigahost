@@ -170,7 +170,7 @@ func (r *dnsZoneResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	if err := r.client.DeleteZone(ctx, state.ZoneId.ValueString()); err != nil {
+	if err := r.client.DeleteZone(ctx, state.ZoneId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
 		resp.Diagnostics.AddError("Unable to Delete Gigahost DNS Zone", err.Error())
 	}
 }
