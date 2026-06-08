@@ -107,13 +107,11 @@ func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Optional:            true,
 				Description:         "OS distribution to install, e.g. \"Ubuntu\". Provide os_distro + os_version, or rescue.",
 				MarkdownDescription: "OS distribution to install, e.g. \"Ubuntu\". Provide os_distro + os_version, or rescue.",
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"os_version": schema.StringAttribute{
 				Optional:            true,
 				Description:         "OS version to install, e.g. \"24.04\" (matches the OS name or release codename).",
 				MarkdownDescription: "OS version to install, e.g. \"24.04\" (matches the OS name or release codename).",
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"rescue": schema.BoolAttribute{
 				Optional:            true,
@@ -253,7 +251,7 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 
 	needProduct := plan.ProductId.IsUnknown() && !plan.ProductName.IsUnknown()
 	needRegion := plan.RegionId.IsUnknown() && !plan.Region.IsUnknown()
-	needOS := plan.OsId.IsUnknown() && !plan.OsDistro.IsNull() && !plan.OsDistro.IsUnknown() && !plan.OsVersion.IsUnknown()
+	needOS := !plan.OsDistro.IsNull() && !plan.OsDistro.IsUnknown() && !plan.OsVersion.IsNull() && !plan.OsVersion.IsUnknown()
 
 	if needProduct || needRegion {
 		catalog, err := r.client.GetDeployCatalog(ctx)
@@ -278,6 +276,15 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("region_id"), regionID)...)
 			}
 		}
+
+		var pid, rid types.Int64
+		resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root("product_id"), &pid)...)
+		resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root("region_id"), &rid)...)
+		if !pid.IsUnknown() && !pid.IsNull() && !rid.IsUnknown() && !rid.IsNull() &&
+			!productOffersRegion(catalog, pid.ValueInt64(), rid.ValueInt64()) {
+			resp.Diagnostics.AddAttributeError(path.Root("region"), "Incompatible Product and Region",
+				fmt.Sprintf("Product %q is not available in region %q.", plan.ProductName.ValueString(), plan.Region.ValueString()))
+		}
 	}
 
 	if needOS {
@@ -291,6 +298,13 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 			resp.Diagnostics.AddAttributeError(path.Root("os_distro"), "Invalid OS", err.Error())
 		} else {
 			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("os_id"), osID)...)
+			if !req.State.Raw.IsNull() {
+				var stateOSID types.Int64
+				resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("os_id"), &stateOSID)...)
+				if !stateOSID.IsNull() && stateOSID.ValueInt64() != osID {
+					resp.RequiresReplace = append(resp.RequiresReplace, path.Root("os_id"))
+				}
+			}
 		}
 	}
 }
@@ -353,6 +367,13 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		resp.Diagnostics.AddError(
 			"Missing OS or Rescue",
 			"Provide os_distro and os_version to install an OS, or set rescue = true.",
+		)
+		return
+	}
+	if osIDPtr != nil && plan.Rescue.ValueBool() {
+		resp.Diagnostics.AddError(
+			"Conflicting OS and Rescue",
+			"Set either os_distro/os_version or rescue, not both.",
 		)
 		return
 	}

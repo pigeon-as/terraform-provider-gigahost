@@ -161,21 +161,13 @@ func (d *osDataSource) Read(ctx context.Context, req datasource.ReadRequest, res
 		return
 	}
 
+	distro := config.Distro.ValueString()
+	version := config.Version.ValueString()
 	var matches []client.OSCatalogEntry
 	for _, e := range catalog {
-		if !config.Distro.IsNull() {
-			distro := config.Distro.ValueString()
-			if !strings.EqualFold(e.Distro.DistName, distro) && !strings.EqualFold(e.Distro.DistValue, distro) {
-				continue
-			}
+		if osMatches(e, distro, version) {
+			matches = append(matches, e)
 		}
-		if !config.Version.IsNull() {
-			version := config.Version.ValueString()
-			if !strings.Contains(strings.ToLower(e.OS.OsName), strings.ToLower(version)) && !strings.EqualFold(e.OS.OsDist, version) {
-				continue
-			}
-		}
-		matches = append(matches, e)
 	}
 
 	if len(matches) == 0 {

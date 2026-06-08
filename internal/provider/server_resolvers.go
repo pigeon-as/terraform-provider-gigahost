@@ -40,6 +40,9 @@ func resolveRegion(catalog *client.DeployCatalog, region string) (int64, error) 
 	case 0:
 		return 0, fmt.Errorf("no region found named %q", region)
 	case 1:
+		if !bool(matches[0].RegionActive) {
+			return 0, fmt.Errorf("region %q is not active", region)
+		}
 		id, err := strconv.ParseInt(matches[0].RegionID, 10, 64)
 		if err != nil {
 			return 0, fmt.Errorf("region %q has an unparseable id %q: %w", region, matches[0].RegionID, err)
@@ -53,15 +56,9 @@ func resolveRegion(catalog *client.DeployCatalog, region string) (int64, error) 
 func resolveOS(catalog []client.OSCatalogEntry, distro, version string) (int64, error) {
 	var matches []client.OSCatalogEntry
 	for _, e := range catalog {
-		if !strings.EqualFold(e.Distro.DistName, distro) && !strings.EqualFold(e.Distro.DistValue, distro) {
-			continue
+		if osMatches(e, distro, version) {
+			matches = append(matches, e)
 		}
-		if version != "" &&
-			!strings.Contains(strings.ToLower(e.OS.OsName), strings.ToLower(version)) &&
-			!strings.EqualFold(e.OS.OsDist, version) {
-			continue
-		}
-		matches = append(matches, e)
 	}
 
 	switch len(matches) {
@@ -80,6 +77,34 @@ func resolveOS(catalog []client.OSCatalogEntry, distro, version string) (int64, 
 		}
 		return 0, fmt.Errorf("%d OS images match distro %q version %q (%s); narrow os_version", len(matches), distro, version, strings.Join(names, ", "))
 	}
+}
+
+func osMatches(e client.OSCatalogEntry, distro, version string) bool {
+	if distro != "" && !strings.EqualFold(e.Distro.DistName, distro) && !strings.EqualFold(e.Distro.DistValue, distro) {
+		return false
+	}
+	if version != "" &&
+		!strings.Contains(strings.ToLower(e.OS.OsName), strings.ToLower(version)) &&
+		!strings.EqualFold(e.OS.OsDist, version) {
+		return false
+	}
+	return true
+}
+
+func productOffersRegion(catalog *client.DeployCatalog, productID, regionID int64) bool {
+	for _, t := range catalog.Tiers {
+		for _, p := range t.Products {
+			if p.ProductID == productID {
+				for _, id := range p.RegionIDs {
+					if id == regionID {
+						return true
+					}
+				}
+				return false
+			}
+		}
+	}
+	return false
 }
 
 func equalID(a, b string) bool {

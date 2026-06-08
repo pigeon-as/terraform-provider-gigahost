@@ -10,13 +10,14 @@ func testResolverCatalog() *client.DeployCatalog {
 	return &client.DeployCatalog{
 		Tiers: []client.DeployTier{
 			{Products: []client.DeployProduct{
-				{ProductID: 7955, PriceID: 4054, ProductName: "KVM Value VPS 4GB"},
-				{ProductID: 7956, PriceID: 4055, ProductName: "KVM Value VPS 8GB"},
+				{ProductID: 7955, PriceID: 4054, ProductName: "KVM Value VPS 4GB", RegionIDs: []int64{1}},
+				{ProductID: 7956, PriceID: 4055, ProductName: "KVM Value VPS 8GB", RegionIDs: []int64{1, 2}},
 			}},
 		},
 		Regions: []client.DeployRegion{
-			{RegionID: "1", RegionName: "Sandefjord", RegionNameShort: "DC1"},
-			{RegionID: "2", RegionName: "Oslo", RegionNameShort: "DC2"},
+			{RegionID: "1", RegionName: "Sandefjord", RegionNameShort: "DC1", RegionActive: true},
+			{RegionID: "2", RegionName: "Oslo", RegionNameShort: "DC2", RegionActive: true},
+			{RegionID: "3", RegionName: "Bergen", RegionNameShort: "DC3", RegionActive: false},
 		},
 	}
 }
@@ -73,6 +74,7 @@ func TestResolveRegion(t *testing.T) {
 		{"by short name", "DC1", 1, false},
 		{"case insensitive", "sandefjord", 1, false},
 		{"not found", "Nowhere", 0, true},
+		{"inactive", "Bergen", 0, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -92,6 +94,16 @@ func testResolverOSCatalog() []client.OSCatalogEntry {
 		{Distro: client.Distro{DistName: "Ubuntu", DistValue: "ubuntu"}, OS: client.OS{OsID: "100", OsName: "Ubuntu 24.04 LTS", OsDist: "noble"}},
 		{Distro: client.Distro{DistName: "Ubuntu", DistValue: "ubuntu"}, OS: client.OS{OsID: "101", OsName: "Ubuntu 22.04 LTS", OsDist: "jammy"}},
 		{Distro: client.Distro{DistName: "Debian", DistValue: "debian"}, OS: client.OS{OsID: "200", OsName: "Debian 12", OsDist: "bookworm"}},
+	}
+}
+
+func TestProductOffersRegion(t *testing.T) {
+	catalog := testResolverCatalog()
+	if !productOffersRegion(catalog, 7955, 1) {
+		t.Error("product 7955 should offer region 1")
+	}
+	if productOffersRegion(catalog, 7955, 2) {
+		t.Error("product 7955 should not offer region 2")
 	}
 }
 
