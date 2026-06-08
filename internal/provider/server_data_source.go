@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
 var (
-	_ datasource.DataSource              = &serverDataSource{}
-	_ datasource.DataSourceWithConfigure = &serverDataSource{}
+	_ datasource.DataSource                     = &serverDataSource{}
+	_ datasource.DataSourceWithConfigure        = &serverDataSource{}
+	_ datasource.DataSourceWithConfigValidators = &serverDataSource{}
 )
 
 func NewServerDataSource() datasource.DataSource {
@@ -233,18 +236,16 @@ func (d *serverDataSource) Configure(_ context.Context, req datasource.Configure
 	d.client = c
 }
 
+func (d *serverDataSource) ConfigValidators(_ context.Context) []datasource.ConfigValidator {
+	return []datasource.ConfigValidator{
+		datasourcevalidator.ExactlyOneOf(path.MatchRoot("srv_id"), path.MatchRoot("srv_name")),
+	}
+}
+
 func (d *serverDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var config serverDataSourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if config.SrvId.IsNull() && config.SrvName.IsNull() {
-		resp.Diagnostics.AddError(
-			"Missing Server Filter",
-			"Set srv_id or srv_name to identify a server.",
-		)
 		return
 	}
 

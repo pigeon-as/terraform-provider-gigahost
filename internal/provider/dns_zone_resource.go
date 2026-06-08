@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -51,11 +52,13 @@ func (r *dnsZoneResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:            true,
 				Description:         "Whether the zone is served by external nameservers.",
 				MarkdownDescription: "Whether the zone is served by external nameservers.",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
 			"zone_active": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the zone is active.",
 				MarkdownDescription: "Whether the zone is active.",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
 			"zone_id": schema.StringAttribute{
 				Computed:            true,
@@ -73,6 +76,7 @@ func (r *dnsZoneResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Computed:            true,
 				Description:         "Whether the zone is protected against deletion.",
 				MarkdownDescription: "Whether the zone is protected against deletion.",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
 			"zone_type": schema.StringAttribute{
 				Optional:            true,
@@ -155,7 +159,7 @@ func (r *dnsZoneResource) Read(ctx context.Context, req resource.ReadRequest, re
 func (r *dnsZoneResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError(
 		"Update Not Supported",
-		"The gigahost_dns_zone resource cannot be updated in place; every attribute requires replacement. This is a bug in the provider, please report it.",
+		"The gigahost_dns_zone resource cannot be updated in place; every attribute requires replacement.",
 	)
 }
 

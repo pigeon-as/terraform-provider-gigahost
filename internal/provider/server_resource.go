@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -40,24 +42,28 @@ type serverResource struct {
 }
 
 type serverResourceModel struct {
-	Name         types.String `tfsdk:"name"`
-	ProductName  types.String `tfsdk:"product_name"`
-	Region       types.String `tfsdk:"region"`
-	OsDistro     types.String `tfsdk:"os_distro"`
-	OsVersion    types.String `tfsdk:"os_version"`
-	Rescue       types.Bool   `tfsdk:"rescue"`
-	Hostname     types.String `tfsdk:"hostname"`
-	SshKeys      types.List   `tfsdk:"ssh_keys"`
-	Backups      types.Bool   `tfsdk:"backups"`
-	ProductId    types.Int64  `tfsdk:"product_id"`
-	PriceId      types.Int64  `tfsdk:"price_id"`
-	RegionId     types.Int64  `tfsdk:"region_id"`
-	OsId         types.Int64  `tfsdk:"os_id"`
-	ServerId     types.String `tfsdk:"server_id"`
-	OrderId      types.Int64  `tfsdk:"order_id"`
-	Ipv4         types.String `tfsdk:"ipv4"`
-	Ipv6         types.String `tfsdk:"ipv6"`
-	RootPassword types.String `tfsdk:"root_password"`
+	Name         types.String  `tfsdk:"name"`
+	ProductName  types.String  `tfsdk:"product_name"`
+	Region       types.String  `tfsdk:"region"`
+	OsDistro     types.String  `tfsdk:"os_distro"`
+	OsVersion    types.String  `tfsdk:"os_version"`
+	Rescue       types.Bool    `tfsdk:"rescue"`
+	Hostname     types.String  `tfsdk:"hostname"`
+	SshKeys      types.List    `tfsdk:"ssh_keys"`
+	Backups      types.Bool    `tfsdk:"backups"`
+	ProductId    types.Int64   `tfsdk:"product_id"`
+	PriceId      types.Int64   `tfsdk:"price_id"`
+	RegionId     types.Int64   `tfsdk:"region_id"`
+	OsId         types.Int64   `tfsdk:"os_id"`
+	ServerId     types.String  `tfsdk:"server_id"`
+	OrderId      types.Int64   `tfsdk:"order_id"`
+	Ipv4         types.String  `tfsdk:"ipv4"`
+	Ipv6         types.String  `tfsdk:"ipv6"`
+	RootPassword types.String  `tfsdk:"root_password"`
+	OrderNumber  types.Int64   `tfsdk:"order_number"`
+	RateHourly   types.Float64 `tfsdk:"rate_hourly"`
+	MonthlyCap   types.Int64   `tfsdk:"monthly_cap"`
+	Currency     types.String  `tfsdk:"currency"`
 }
 
 func (r *serverResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -124,14 +130,14 @@ func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			},
 			"product_id": schema.Int64Attribute{
 				Computed:            true,
-				Description:         "Resolved product id (from tier + memory).",
-				MarkdownDescription: "Resolved product id (from tier + memory).",
+				Description:         "Resolved product id (from product_name).",
+				MarkdownDescription: "Resolved product id (from product_name).",
 				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"price_id": schema.Int64Attribute{
 				Computed:            true,
-				Description:         "Resolved price id (from tier + memory).",
-				MarkdownDescription: "Resolved price id (from tier + memory).",
+				Description:         "Resolved price id (from product_name).",
+				MarkdownDescription: "Resolved price id (from product_name).",
 				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"region_id": schema.Int64Attribute{
@@ -175,6 +181,30 @@ func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				Sensitive:           true,
 				Description:         "Initial root password (only set when the server is deployed without an SSH key).",
 				MarkdownDescription: "Initial root password (only set when the server is deployed without an SSH key).",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"order_number": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Human-facing order number for the deployment.",
+				MarkdownDescription: "Human-facing order number for the deployment.",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"rate_hourly": schema.Float64Attribute{
+				Computed:            true,
+				Description:         "Hourly rate for the server.",
+				MarkdownDescription: "Hourly rate for the server.",
+				PlanModifiers:       []planmodifier.Float64{float64planmodifier.UseStateForUnknown()},
+			},
+			"monthly_cap": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Monthly price cap (the most charged per month).",
+				MarkdownDescription: "Monthly price cap (the most charged per month).",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"currency": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Currency of the pricing.",
+				MarkdownDescription: "Currency of the pricing.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
@@ -352,6 +382,13 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	if server.Password != "" {
 		state.RootPassword = types.StringValue(server.Password)
 	}
+	state.OrderNumber = types.Int64Null()
+	if len(result.OrderNumbers) > 0 {
+		state.OrderNumber = types.Int64Value(result.OrderNumbers[0])
+	}
+	state.RateHourly = types.Float64Value(result.RateHourly)
+	state.MonthlyCap = types.Int64Value(result.MonthlyCap)
+	state.Currency = types.StringValue(result.Currency)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -363,18 +400,28 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 	ticker := time.NewTicker(serverDeployPollInterval)
 	defer ticker.Stop()
 
+	const maxPollErrors = 4
+	pollErrors := 0
+
 	for {
 		status, err := r.client.GetDeployStatus(ctx, []int64{orderID})
 		if err != nil {
-			return nil, err
-		}
-		for i := range status.Servers {
-			if int64(status.Servers[i].OrderID) != orderID {
-				continue
+			pollErrors++
+			if pollErrors > maxPollErrors {
+				return nil, fmt.Errorf("polling deploy status for order %d failed %d times in a row: %w", orderID, pollErrors, err)
 			}
-			switch status.Servers[i].Status {
-			case "ready", "rescue", "iso":
-				return &status.Servers[i], nil
+		} else {
+			pollErrors = 0
+			for i := range status.Servers {
+				if int64(status.Servers[i].OrderID) != orderID {
+					continue
+				}
+				switch status.Servers[i].Status {
+				case "ready", "rescue", "iso":
+					return &status.Servers[i], nil
+				case "error", "failed", "cancelled":
+					return nil, fmt.Errorf("server (order %d) failed to deploy: status %q", orderID, status.Servers[i].Status)
+				}
 			}
 		}
 
@@ -391,6 +438,35 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	servers, err := r.client.ListServers(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read Gigahost Server", err.Error())
+		return
+	}
+
+	var found *client.Server
+	for i := range servers {
+		if servers[i].SrvID == state.ServerId.ValueString() {
+			found = &servers[i]
+			break
+		}
+	}
+	if found == nil {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	if !state.Name.IsNull() {
+		state.Name = types.StringValue(found.SrvName)
+	}
+	state.Ipv4 = types.StringValue(found.SrvPrimaryIP)
+	for _, ip := range found.IPs {
+		if strings.EqualFold(ip.IPv4v6, "ipv6") {
+			state.Ipv6 = types.StringValue(ip.IPAddress)
+			break
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

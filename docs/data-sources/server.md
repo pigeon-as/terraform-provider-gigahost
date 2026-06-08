@@ -14,7 +14,7 @@ Looks up a single server by id or name.
 
 ```terraform
 data "gigahost_server" "example" {
-  srv_id = "12345"
+  srv_name = "web-01"
 }
 ```
 

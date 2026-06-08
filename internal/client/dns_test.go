@@ -25,6 +25,11 @@ func TestFlexBool(t *testing.T) {
 			t.Errorf("flexBool(%s) = %v, want %v", input, bool(b), want)
 		}
 	}
+
+	var bad flexBool
+	if err := bad.UnmarshalJSON([]byte(`"yes"`)); err == nil {
+		t.Error("expected an error for an unrecognized boolean value")
+	}
 }
 
 func TestNormalizeRecordValue(t *testing.T) {

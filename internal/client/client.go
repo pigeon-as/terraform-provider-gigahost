@@ -204,7 +204,6 @@ func errorMessage(body []byte) string {
 }
 
 type meta struct {
-	Status        int    `json:"status"`
 	StatusMessage string `json:"status_message"`
 	Message       string `json:"message"`
 	Error         string `json:"error"`

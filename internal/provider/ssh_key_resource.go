@@ -134,7 +134,7 @@ func (r *sshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 func (r *sshKeyResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError(
 		"Update Not Supported",
-		"The gigahost_ssh_key resource cannot be updated in place; every attribute requires replacement. This is a bug in the provider, please report it.",
+		"The gigahost_ssh_key resource cannot be updated in place; every attribute requires replacement.",
 	)
 }
 

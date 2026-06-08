@@ -14,8 +14,14 @@ import (
 type flexBool bool
 
 func (b *flexBool) UnmarshalJSON(data []byte) error {
-	s := strings.Trim(string(data), `"`)
-	*b = flexBool(s == "1" || s == "true")
+	switch s := strings.Trim(string(data), `"`); s {
+	case "1", "true":
+		*b = true
+	case "0", "false", "", "null":
+		*b = false
+	default:
+		return fmt.Errorf("cannot parse %q as a boolean", s)
+	}
 	return nil
 }
 

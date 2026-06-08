@@ -6,16 +6,19 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
 var (
-	_ datasource.DataSource              = &osDataSource{}
-	_ datasource.DataSourceWithConfigure = &osDataSource{}
+	_ datasource.DataSource                     = &osDataSource{}
+	_ datasource.DataSourceWithConfigure        = &osDataSource{}
+	_ datasource.DataSourceWithConfigValidators = &osDataSource{}
 )
 
 func NewOSDataSource() datasource.DataSource {
@@ -139,18 +142,16 @@ func (d *osDataSource) Configure(_ context.Context, req datasource.ConfigureRequ
 	d.client = c
 }
 
+func (d *osDataSource) ConfigValidators(_ context.Context) []datasource.ConfigValidator {
+	return []datasource.ConfigValidator{
+		datasourcevalidator.AtLeastOneOf(path.MatchRoot("distro"), path.MatchRoot("version")),
+	}
+}
+
 func (d *osDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var config osModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if config.Distro.IsNull() && config.Version.IsNull() {
-		resp.Diagnostics.AddError(
-			"Missing OS Filter",
-			"Set at least one of distro or version to identify an OS image.",
-		)
 		return
 	}
 

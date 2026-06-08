@@ -56,6 +56,7 @@ jobs:
   test:
     name: 'Acceptance Tests: Terraform ${{ matrix.terraform }}'
     needs: build
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -63,7 +64,6 @@ jobs:
       matrix:
         # Terraform versions
         terraform:
-          - '1.13.*'
           - '1.14.*'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

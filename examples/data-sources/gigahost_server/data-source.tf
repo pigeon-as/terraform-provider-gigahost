@@ -1,3 +1,3 @@
 data "gigahost_server" "example" {
-  srv_id = "12345"
+  srv_name = "web-01"
 }
