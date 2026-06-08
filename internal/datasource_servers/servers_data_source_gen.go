@@ -21,6 +21,26 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 			"servers": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
+						"datacenter": schema.SingleNestedAttribute{
+							Attributes: map[string]schema.Attribute{
+								"region_id": schema.StringAttribute{
+									Computed:            true,
+									Description:         "Region id.",
+									MarkdownDescription: "Region id.",
+								},
+								"region_name": schema.StringAttribute{
+									Computed:            true,
+									Description:         "Region name.",
+									MarkdownDescription: "Region name.",
+								},
+							},
+							CustomType: DatacenterType{
+								ObjectType: types.ObjectType{
+									AttrTypes: DatacenterValue{}.AttributeTypes(ctx),
+								},
+							},
+							Computed: true,
+						},
 						"ips": schema.ListNestedAttribute{
 							NestedObject: schema.NestedAttributeObject{
 								Attributes: map[string]schema.Attribute{
@@ -69,6 +89,41 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 							Computed:            true,
 							Description:         "IP addresses assigned to the server.",
 							MarkdownDescription: "IP addresses assigned to the server.",
+						},
+						"order": schema.SingleNestedAttribute{
+							Attributes: map[string]schema.Attribute{
+								"order_id": schema.StringAttribute{
+									Computed:            true,
+									Description:         "Order id.",
+									MarkdownDescription: "Order id.",
+								},
+								"order_number": schema.StringAttribute{
+									Computed:            true,
+									Description:         "Human-facing order number.",
+									MarkdownDescription: "Human-facing order number.",
+								},
+								"order_status": schema.StringAttribute{
+									Computed:            true,
+									Description:         "Order status (e.g. active or cancelled).",
+									MarkdownDescription: "Order status (e.g. active or cancelled).",
+								},
+								"product_id": schema.StringAttribute{
+									Computed:            true,
+									Description:         "Product id.",
+									MarkdownDescription: "Product id.",
+								},
+								"product_name": schema.StringAttribute{
+									Computed:            true,
+									Description:         "Product name.",
+									MarkdownDescription: "Product name.",
+								},
+							},
+							CustomType: OrderType{
+								ObjectType: types.ObjectType{
+									AttrTypes: OrderValue{}.AttributeTypes(ctx),
+								},
+							},
+							Computed: true,
 						},
 						"os": schema.SingleNestedAttribute{
 							Attributes: map[string]schema.Attribute{
@@ -214,6 +269,24 @@ func (t ServersType) ValueFromObject(ctx context.Context, in basetypes.ObjectVal
 
 	attributes := in.Attributes()
 
+	datacenterAttribute, ok := attributes["datacenter"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`datacenter is missing from object`)
+
+		return nil, diags
+	}
+
+	datacenterVal, ok := datacenterAttribute.(basetypes.ObjectValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`datacenter expected to be basetypes.ObjectValue, was: %T`, datacenterAttribute))
+	}
+
 	ipsAttribute, ok := attributes["ips"]
 
 	if !ok {
@@ -230,6 +303,24 @@ func (t ServersType) ValueFromObject(ctx context.Context, in basetypes.ObjectVal
 		diags.AddError(
 			"Attribute Wrong Type",
 			fmt.Sprintf(`ips expected to be basetypes.ListValue, was: %T`, ipsAttribute))
+	}
+
+	orderAttribute, ok := attributes["order"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order is missing from object`)
+
+		return nil, diags
+	}
+
+	orderVal, ok := orderAttribute.(basetypes.ObjectValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order expected to be basetypes.ObjectValue, was: %T`, orderAttribute))
 	}
 
 	osAttribute, ok := attributes["os"]
@@ -525,7 +616,9 @@ func (t ServersType) ValueFromObject(ctx context.Context, in basetypes.ObjectVal
 	}
 
 	return ServersValue{
+		Datacenter:       datacenterVal,
 		Ips:              ipsVal,
+		Order:            orderVal,
 		Os:               osVal,
 		OsId:             osIdVal,
 		ProductId:        productIdVal,
@@ -609,6 +702,24 @@ func NewServersValue(attributeTypes map[string]attr.Type, attributes map[string]
 		return NewServersValueUnknown(), diags
 	}
 
+	datacenterAttribute, ok := attributes["datacenter"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`datacenter is missing from object`)
+
+		return NewServersValueUnknown(), diags
+	}
+
+	datacenterVal, ok := datacenterAttribute.(basetypes.ObjectValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`datacenter expected to be basetypes.ObjectValue, was: %T`, datacenterAttribute))
+	}
+
 	ipsAttribute, ok := attributes["ips"]
 
 	if !ok {
@@ -625,6 +736,24 @@ func NewServersValue(attributeTypes map[string]attr.Type, attributes map[string]
 		diags.AddError(
 			"Attribute Wrong Type",
 			fmt.Sprintf(`ips expected to be basetypes.ListValue, was: %T`, ipsAttribute))
+	}
+
+	orderAttribute, ok := attributes["order"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order is missing from object`)
+
+		return NewServersValueUnknown(), diags
+	}
+
+	orderVal, ok := orderAttribute.(basetypes.ObjectValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order expected to be basetypes.ObjectValue, was: %T`, orderAttribute))
 	}
 
 	osAttribute, ok := attributes["os"]
@@ -920,7 +1049,9 @@ func NewServersValue(attributeTypes map[string]attr.Type, attributes map[string]
 	}
 
 	return ServersValue{
+		Datacenter:       datacenterVal,
 		Ips:              ipsVal,
+		Order:            orderVal,
 		Os:               osVal,
 		OsId:             osIdVal,
 		ProductId:        productIdVal,
@@ -1009,7 +1140,9 @@ func (t ServersType) ValueType(ctx context.Context) attr.Value {
 var _ basetypes.ObjectValuable = ServersValue{}
 
 type ServersValue struct {
+	Datacenter       basetypes.ObjectValue `tfsdk:"datacenter"`
 	Ips              basetypes.ListValue   `tfsdk:"ips"`
+	Order            basetypes.ObjectValue `tfsdk:"order"`
 	Os               basetypes.ObjectValue `tfsdk:"os"`
 	OsId             basetypes.StringValue `tfsdk:"os_id"`
 	ProductId        basetypes.StringValue `tfsdk:"product_id"`
@@ -1030,13 +1163,19 @@ type ServersValue struct {
 }
 
 func (v ServersValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	attrTypes := make(map[string]tftypes.Type, 17)
+	attrTypes := make(map[string]tftypes.Type, 19)
 
 	var val tftypes.Value
 	var err error
 
+	attrTypes["datacenter"] = basetypes.ObjectType{
+		AttrTypes: DatacenterValue{}.AttributeTypes(ctx),
+	}.TerraformType(ctx)
 	attrTypes["ips"] = basetypes.ListType{
 		ElemType: IpsValue{}.Type(ctx),
+	}.TerraformType(ctx)
+	attrTypes["order"] = basetypes.ObjectType{
+		AttrTypes: OrderValue{}.AttributeTypes(ctx),
 	}.TerraformType(ctx)
 	attrTypes["os"] = basetypes.ObjectType{
 		AttrTypes: OsValue{}.AttributeTypes(ctx),
@@ -1061,7 +1200,15 @@ func (v ServersValue) ToTerraformValue(ctx context.Context) (tftypes.Value, erro
 
 	switch v.state {
 	case attr.ValueStateKnown:
-		vals := make(map[string]tftypes.Value, 17)
+		vals := make(map[string]tftypes.Value, 19)
+
+		val, err = v.Datacenter.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["datacenter"] = val
 
 		val, err = v.Ips.ToTerraformValue(ctx)
 
@@ -1070,6 +1217,14 @@ func (v ServersValue) ToTerraformValue(ctx context.Context) (tftypes.Value, erro
 		}
 
 		vals["ips"] = val
+
+		val, err = v.Order.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["order"] = val
 
 		val, err = v.Os.ToTerraformValue(ctx)
 
@@ -1228,6 +1383,27 @@ func (v ServersValue) String() string {
 func (v ServersValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
+	var datacenter basetypes.ObjectValue
+
+	if v.Datacenter.IsNull() {
+		datacenter = types.ObjectNull(
+			DatacenterValue{}.AttributeTypes(ctx),
+		)
+	}
+
+	if v.Datacenter.IsUnknown() {
+		datacenter = types.ObjectUnknown(
+			DatacenterValue{}.AttributeTypes(ctx),
+		)
+	}
+
+	if !v.Datacenter.IsNull() && !v.Datacenter.IsUnknown() {
+		datacenter = types.ObjectValueMust(
+			DatacenterValue{}.AttributeTypes(ctx),
+			v.Datacenter.Attributes(),
+		)
+	}
+
 	ips := types.ListValueMust(
 		IpsType{
 			basetypes.ObjectType{
@@ -1257,6 +1433,27 @@ func (v ServersValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue,
 		)
 	}
 
+	var order basetypes.ObjectValue
+
+	if v.Order.IsNull() {
+		order = types.ObjectNull(
+			OrderValue{}.AttributeTypes(ctx),
+		)
+	}
+
+	if v.Order.IsUnknown() {
+		order = types.ObjectUnknown(
+			OrderValue{}.AttributeTypes(ctx),
+		)
+	}
+
+	if !v.Order.IsNull() && !v.Order.IsUnknown() {
+		order = types.ObjectValueMust(
+			OrderValue{}.AttributeTypes(ctx),
+			v.Order.Attributes(),
+		)
+	}
+
 	var os basetypes.ObjectValue
 
 	if v.Os.IsNull() {
@@ -1279,8 +1476,14 @@ func (v ServersValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue,
 	}
 
 	attributeTypes := map[string]attr.Type{
+		"datacenter": basetypes.ObjectType{
+			AttrTypes: DatacenterValue{}.AttributeTypes(ctx),
+		},
 		"ips": basetypes.ListType{
 			ElemType: IpsValue{}.Type(ctx),
+		},
+		"order": basetypes.ObjectType{
+			AttrTypes: OrderValue{}.AttributeTypes(ctx),
 		},
 		"os": basetypes.ObjectType{
 			AttrTypes: OsValue{}.AttributeTypes(ctx),
@@ -1313,7 +1516,9 @@ func (v ServersValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue,
 	objVal, diags := types.ObjectValue(
 		attributeTypes,
 		map[string]attr.Value{
+			"datacenter":         datacenter,
 			"ips":                ips,
+			"order":              order,
 			"os":                 os,
 			"os_id":              v.OsId,
 			"product_id":         v.ProductId,
@@ -1350,7 +1555,15 @@ func (v ServersValue) Equal(o attr.Value) bool {
 		return true
 	}
 
+	if !v.Datacenter.Equal(other.Datacenter) {
+		return false
+	}
+
 	if !v.Ips.Equal(other.Ips) {
+		return false
+	}
+
+	if !v.Order.Equal(other.Order) {
 		return false
 	}
 
@@ -1431,8 +1644,14 @@ func (v ServersValue) Type(ctx context.Context) attr.Type {
 
 func (v ServersValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 	return map[string]attr.Type{
+		"datacenter": basetypes.ObjectType{
+			AttrTypes: DatacenterValue{}.AttributeTypes(ctx),
+		},
 		"ips": basetypes.ListType{
 			ElemType: IpsValue{}.Type(ctx),
+		},
+		"order": basetypes.ObjectType{
+			AttrTypes: OrderValue{}.AttributeTypes(ctx),
 		},
 		"os": basetypes.ObjectType{
 			AttrTypes: OsValue{}.AttributeTypes(ctx),
@@ -1452,6 +1671,385 @@ func (v ServersValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 		"srv_suspended":      basetypes.BoolType{},
 		"srv_type":           basetypes.StringType{},
 		"srv_vps_type":       basetypes.StringType{},
+	}
+}
+
+var _ basetypes.ObjectTypable = DatacenterType{}
+
+type DatacenterType struct {
+	basetypes.ObjectType
+}
+
+func (t DatacenterType) Equal(o attr.Type) bool {
+	other, ok := o.(DatacenterType)
+
+	if !ok {
+		return false
+	}
+
+	return t.ObjectType.Equal(other.ObjectType)
+}
+
+func (t DatacenterType) String() string {
+	return "DatacenterType"
+}
+
+func (t DatacenterType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	attributes := in.Attributes()
+
+	regionIdAttribute, ok := attributes["region_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`region_id is missing from object`)
+
+		return nil, diags
+	}
+
+	regionIdVal, ok := regionIdAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`region_id expected to be basetypes.StringValue, was: %T`, regionIdAttribute))
+	}
+
+	regionNameAttribute, ok := attributes["region_name"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`region_name is missing from object`)
+
+		return nil, diags
+	}
+
+	regionNameVal, ok := regionNameAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`region_name expected to be basetypes.StringValue, was: %T`, regionNameAttribute))
+	}
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	return DatacenterValue{
+		RegionId:   regionIdVal,
+		RegionName: regionNameVal,
+		state:      attr.ValueStateKnown,
+	}, diags
+}
+
+func NewDatacenterValueNull() DatacenterValue {
+	return DatacenterValue{
+		state: attr.ValueStateNull,
+	}
+}
+
+func NewDatacenterValueUnknown() DatacenterValue {
+	return DatacenterValue{
+		state: attr.ValueStateUnknown,
+	}
+}
+
+func NewDatacenterValue(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) (DatacenterValue, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	// Reference: https://github.com/hashicorp/terraform-plugin-framework/issues/521
+	ctx := context.Background()
+
+	for name, attributeType := range attributeTypes {
+		attribute, ok := attributes[name]
+
+		if !ok {
+			diags.AddError(
+				"Missing DatacenterValue Attribute Value",
+				"While creating a DatacenterValue value, a missing attribute value was detected. "+
+					"A DatacenterValue must contain values for all attributes, even if null or unknown. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("DatacenterValue Attribute Name (%s) Expected Type: %s", name, attributeType.String()),
+			)
+
+			continue
+		}
+
+		if !attributeType.Equal(attribute.Type(ctx)) {
+			diags.AddError(
+				"Invalid DatacenterValue Attribute Type",
+				"While creating a DatacenterValue value, an invalid attribute value was detected. "+
+					"A DatacenterValue must use a matching attribute type for the value. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("DatacenterValue Attribute Name (%s) Expected Type: %s\n", name, attributeType.String())+
+					fmt.Sprintf("DatacenterValue Attribute Name (%s) Given Type: %s", name, attribute.Type(ctx)),
+			)
+		}
+	}
+
+	for name := range attributes {
+		_, ok := attributeTypes[name]
+
+		if !ok {
+			diags.AddError(
+				"Extra DatacenterValue Attribute Value",
+				"While creating a DatacenterValue value, an extra attribute value was detected. "+
+					"A DatacenterValue must not contain values beyond the expected attribute types. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("Extra DatacenterValue Attribute Name: %s", name),
+			)
+		}
+	}
+
+	if diags.HasError() {
+		return NewDatacenterValueUnknown(), diags
+	}
+
+	regionIdAttribute, ok := attributes["region_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`region_id is missing from object`)
+
+		return NewDatacenterValueUnknown(), diags
+	}
+
+	regionIdVal, ok := regionIdAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`region_id expected to be basetypes.StringValue, was: %T`, regionIdAttribute))
+	}
+
+	regionNameAttribute, ok := attributes["region_name"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`region_name is missing from object`)
+
+		return NewDatacenterValueUnknown(), diags
+	}
+
+	regionNameVal, ok := regionNameAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`region_name expected to be basetypes.StringValue, was: %T`, regionNameAttribute))
+	}
+
+	if diags.HasError() {
+		return NewDatacenterValueUnknown(), diags
+	}
+
+	return DatacenterValue{
+		RegionId:   regionIdVal,
+		RegionName: regionNameVal,
+		state:      attr.ValueStateKnown,
+	}, diags
+}
+
+func NewDatacenterValueMust(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) DatacenterValue {
+	object, diags := NewDatacenterValue(attributeTypes, attributes)
+
+	if diags.HasError() {
+		// This could potentially be added to the diag package.
+		diagsStrings := make([]string, 0, len(diags))
+
+		for _, diagnostic := range diags {
+			diagsStrings = append(diagsStrings, fmt.Sprintf(
+				"%s | %s | %s",
+				diagnostic.Severity(),
+				diagnostic.Summary(),
+				diagnostic.Detail()))
+		}
+
+		panic("NewDatacenterValueMust received error(s): " + strings.Join(diagsStrings, "\n"))
+	}
+
+	return object
+}
+
+func (t DatacenterType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
+	if in.Type() == nil {
+		return NewDatacenterValueNull(), nil
+	}
+
+	if !in.Type().Equal(t.TerraformType(ctx)) {
+		return nil, fmt.Errorf("expected %s, got %s", t.TerraformType(ctx), in.Type())
+	}
+
+	if !in.IsKnown() {
+		return NewDatacenterValueUnknown(), nil
+	}
+
+	if in.IsNull() {
+		return NewDatacenterValueNull(), nil
+	}
+
+	attributes := map[string]attr.Value{}
+
+	val := map[string]tftypes.Value{}
+
+	err := in.As(&val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range val {
+		a, err := t.AttrTypes[k].ValueFromTerraform(ctx, v)
+
+		if err != nil {
+			return nil, err
+		}
+
+		attributes[k] = a
+	}
+
+	return NewDatacenterValueMust(DatacenterValue{}.AttributeTypes(ctx), attributes), nil
+}
+
+func (t DatacenterType) ValueType(ctx context.Context) attr.Value {
+	return DatacenterValue{}
+}
+
+var _ basetypes.ObjectValuable = DatacenterValue{}
+
+type DatacenterValue struct {
+	RegionId   basetypes.StringValue `tfsdk:"region_id"`
+	RegionName basetypes.StringValue `tfsdk:"region_name"`
+	state      attr.ValueState
+}
+
+func (v DatacenterValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
+	attrTypes := make(map[string]tftypes.Type, 2)
+
+	var val tftypes.Value
+	var err error
+
+	attrTypes["region_id"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["region_name"] = basetypes.StringType{}.TerraformType(ctx)
+
+	objectType := tftypes.Object{AttributeTypes: attrTypes}
+
+	switch v.state {
+	case attr.ValueStateKnown:
+		vals := make(map[string]tftypes.Value, 2)
+
+		val, err = v.RegionId.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["region_id"] = val
+
+		val, err = v.RegionName.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["region_name"] = val
+
+		if err := tftypes.ValidateValue(objectType, vals); err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		return tftypes.NewValue(objectType, vals), nil
+	case attr.ValueStateNull:
+		return tftypes.NewValue(objectType, nil), nil
+	case attr.ValueStateUnknown:
+		return tftypes.NewValue(objectType, tftypes.UnknownValue), nil
+	default:
+		panic(fmt.Sprintf("unhandled Object state in ToTerraformValue: %s", v.state))
+	}
+}
+
+func (v DatacenterValue) IsNull() bool {
+	return v.state == attr.ValueStateNull
+}
+
+func (v DatacenterValue) IsUnknown() bool {
+	return v.state == attr.ValueStateUnknown
+}
+
+func (v DatacenterValue) String() string {
+	return "DatacenterValue"
+}
+
+func (v DatacenterValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	attributeTypes := map[string]attr.Type{
+		"region_id":   basetypes.StringType{},
+		"region_name": basetypes.StringType{},
+	}
+
+	if v.IsNull() {
+		return types.ObjectNull(attributeTypes), diags
+	}
+
+	if v.IsUnknown() {
+		return types.ObjectUnknown(attributeTypes), diags
+	}
+
+	objVal, diags := types.ObjectValue(
+		attributeTypes,
+		map[string]attr.Value{
+			"region_id":   v.RegionId,
+			"region_name": v.RegionName,
+		})
+
+	return objVal, diags
+}
+
+func (v DatacenterValue) Equal(o attr.Value) bool {
+	other, ok := o.(DatacenterValue)
+
+	if !ok {
+		return false
+	}
+
+	if v.state != other.state {
+		return false
+	}
+
+	if v.state != attr.ValueStateKnown {
+		return true
+	}
+
+	if !v.RegionId.Equal(other.RegionId) {
+		return false
+	}
+
+	if !v.RegionName.Equal(other.RegionName) {
+		return false
+	}
+
+	return true
+}
+
+func (v DatacenterValue) Type(ctx context.Context) attr.Type {
+	return DatacenterType{
+		basetypes.ObjectType{
+			AttrTypes: v.AttributeTypes(ctx),
+		},
+	}
+}
+
+func (v DatacenterValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
+	return map[string]attr.Type{
+		"region_id":   basetypes.StringType{},
+		"region_name": basetypes.StringType{},
 	}
 }
 
@@ -2106,6 +2704,550 @@ func (v IpsValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 		"ip_reverse": basetypes.StringType{},
 		"ip_type":    basetypes.StringType{},
 		"ip_v4v6":    basetypes.StringType{},
+	}
+}
+
+var _ basetypes.ObjectTypable = OrderType{}
+
+type OrderType struct {
+	basetypes.ObjectType
+}
+
+func (t OrderType) Equal(o attr.Type) bool {
+	other, ok := o.(OrderType)
+
+	if !ok {
+		return false
+	}
+
+	return t.ObjectType.Equal(other.ObjectType)
+}
+
+func (t OrderType) String() string {
+	return "OrderType"
+}
+
+func (t OrderType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	attributes := in.Attributes()
+
+	orderIdAttribute, ok := attributes["order_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order_id is missing from object`)
+
+		return nil, diags
+	}
+
+	orderIdVal, ok := orderIdAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order_id expected to be basetypes.StringValue, was: %T`, orderIdAttribute))
+	}
+
+	orderNumberAttribute, ok := attributes["order_number"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order_number is missing from object`)
+
+		return nil, diags
+	}
+
+	orderNumberVal, ok := orderNumberAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order_number expected to be basetypes.StringValue, was: %T`, orderNumberAttribute))
+	}
+
+	orderStatusAttribute, ok := attributes["order_status"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order_status is missing from object`)
+
+		return nil, diags
+	}
+
+	orderStatusVal, ok := orderStatusAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order_status expected to be basetypes.StringValue, was: %T`, orderStatusAttribute))
+	}
+
+	productIdAttribute, ok := attributes["product_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`product_id is missing from object`)
+
+		return nil, diags
+	}
+
+	productIdVal, ok := productIdAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`product_id expected to be basetypes.StringValue, was: %T`, productIdAttribute))
+	}
+
+	productNameAttribute, ok := attributes["product_name"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`product_name is missing from object`)
+
+		return nil, diags
+	}
+
+	productNameVal, ok := productNameAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`product_name expected to be basetypes.StringValue, was: %T`, productNameAttribute))
+	}
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	return OrderValue{
+		OrderId:     orderIdVal,
+		OrderNumber: orderNumberVal,
+		OrderStatus: orderStatusVal,
+		ProductId:   productIdVal,
+		ProductName: productNameVal,
+		state:       attr.ValueStateKnown,
+	}, diags
+}
+
+func NewOrderValueNull() OrderValue {
+	return OrderValue{
+		state: attr.ValueStateNull,
+	}
+}
+
+func NewOrderValueUnknown() OrderValue {
+	return OrderValue{
+		state: attr.ValueStateUnknown,
+	}
+}
+
+func NewOrderValue(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) (OrderValue, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	// Reference: https://github.com/hashicorp/terraform-plugin-framework/issues/521
+	ctx := context.Background()
+
+	for name, attributeType := range attributeTypes {
+		attribute, ok := attributes[name]
+
+		if !ok {
+			diags.AddError(
+				"Missing OrderValue Attribute Value",
+				"While creating a OrderValue value, a missing attribute value was detected. "+
+					"A OrderValue must contain values for all attributes, even if null or unknown. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("OrderValue Attribute Name (%s) Expected Type: %s", name, attributeType.String()),
+			)
+
+			continue
+		}
+
+		if !attributeType.Equal(attribute.Type(ctx)) {
+			diags.AddError(
+				"Invalid OrderValue Attribute Type",
+				"While creating a OrderValue value, an invalid attribute value was detected. "+
+					"A OrderValue must use a matching attribute type for the value. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("OrderValue Attribute Name (%s) Expected Type: %s\n", name, attributeType.String())+
+					fmt.Sprintf("OrderValue Attribute Name (%s) Given Type: %s", name, attribute.Type(ctx)),
+			)
+		}
+	}
+
+	for name := range attributes {
+		_, ok := attributeTypes[name]
+
+		if !ok {
+			diags.AddError(
+				"Extra OrderValue Attribute Value",
+				"While creating a OrderValue value, an extra attribute value was detected. "+
+					"A OrderValue must not contain values beyond the expected attribute types. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("Extra OrderValue Attribute Name: %s", name),
+			)
+		}
+	}
+
+	if diags.HasError() {
+		return NewOrderValueUnknown(), diags
+	}
+
+	orderIdAttribute, ok := attributes["order_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order_id is missing from object`)
+
+		return NewOrderValueUnknown(), diags
+	}
+
+	orderIdVal, ok := orderIdAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order_id expected to be basetypes.StringValue, was: %T`, orderIdAttribute))
+	}
+
+	orderNumberAttribute, ok := attributes["order_number"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order_number is missing from object`)
+
+		return NewOrderValueUnknown(), diags
+	}
+
+	orderNumberVal, ok := orderNumberAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order_number expected to be basetypes.StringValue, was: %T`, orderNumberAttribute))
+	}
+
+	orderStatusAttribute, ok := attributes["order_status"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`order_status is missing from object`)
+
+		return NewOrderValueUnknown(), diags
+	}
+
+	orderStatusVal, ok := orderStatusAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`order_status expected to be basetypes.StringValue, was: %T`, orderStatusAttribute))
+	}
+
+	productIdAttribute, ok := attributes["product_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`product_id is missing from object`)
+
+		return NewOrderValueUnknown(), diags
+	}
+
+	productIdVal, ok := productIdAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`product_id expected to be basetypes.StringValue, was: %T`, productIdAttribute))
+	}
+
+	productNameAttribute, ok := attributes["product_name"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`product_name is missing from object`)
+
+		return NewOrderValueUnknown(), diags
+	}
+
+	productNameVal, ok := productNameAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`product_name expected to be basetypes.StringValue, was: %T`, productNameAttribute))
+	}
+
+	if diags.HasError() {
+		return NewOrderValueUnknown(), diags
+	}
+
+	return OrderValue{
+		OrderId:     orderIdVal,
+		OrderNumber: orderNumberVal,
+		OrderStatus: orderStatusVal,
+		ProductId:   productIdVal,
+		ProductName: productNameVal,
+		state:       attr.ValueStateKnown,
+	}, diags
+}
+
+func NewOrderValueMust(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) OrderValue {
+	object, diags := NewOrderValue(attributeTypes, attributes)
+
+	if diags.HasError() {
+		// This could potentially be added to the diag package.
+		diagsStrings := make([]string, 0, len(diags))
+
+		for _, diagnostic := range diags {
+			diagsStrings = append(diagsStrings, fmt.Sprintf(
+				"%s | %s | %s",
+				diagnostic.Severity(),
+				diagnostic.Summary(),
+				diagnostic.Detail()))
+		}
+
+		panic("NewOrderValueMust received error(s): " + strings.Join(diagsStrings, "\n"))
+	}
+
+	return object
+}
+
+func (t OrderType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
+	if in.Type() == nil {
+		return NewOrderValueNull(), nil
+	}
+
+	if !in.Type().Equal(t.TerraformType(ctx)) {
+		return nil, fmt.Errorf("expected %s, got %s", t.TerraformType(ctx), in.Type())
+	}
+
+	if !in.IsKnown() {
+		return NewOrderValueUnknown(), nil
+	}
+
+	if in.IsNull() {
+		return NewOrderValueNull(), nil
+	}
+
+	attributes := map[string]attr.Value{}
+
+	val := map[string]tftypes.Value{}
+
+	err := in.As(&val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range val {
+		a, err := t.AttrTypes[k].ValueFromTerraform(ctx, v)
+
+		if err != nil {
+			return nil, err
+		}
+
+		attributes[k] = a
+	}
+
+	return NewOrderValueMust(OrderValue{}.AttributeTypes(ctx), attributes), nil
+}
+
+func (t OrderType) ValueType(ctx context.Context) attr.Value {
+	return OrderValue{}
+}
+
+var _ basetypes.ObjectValuable = OrderValue{}
+
+type OrderValue struct {
+	OrderId     basetypes.StringValue `tfsdk:"order_id"`
+	OrderNumber basetypes.StringValue `tfsdk:"order_number"`
+	OrderStatus basetypes.StringValue `tfsdk:"order_status"`
+	ProductId   basetypes.StringValue `tfsdk:"product_id"`
+	ProductName basetypes.StringValue `tfsdk:"product_name"`
+	state       attr.ValueState
+}
+
+func (v OrderValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
+	attrTypes := make(map[string]tftypes.Type, 5)
+
+	var val tftypes.Value
+	var err error
+
+	attrTypes["order_id"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["order_number"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["order_status"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["product_id"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["product_name"] = basetypes.StringType{}.TerraformType(ctx)
+
+	objectType := tftypes.Object{AttributeTypes: attrTypes}
+
+	switch v.state {
+	case attr.ValueStateKnown:
+		vals := make(map[string]tftypes.Value, 5)
+
+		val, err = v.OrderId.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["order_id"] = val
+
+		val, err = v.OrderNumber.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["order_number"] = val
+
+		val, err = v.OrderStatus.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["order_status"] = val
+
+		val, err = v.ProductId.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["product_id"] = val
+
+		val, err = v.ProductName.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["product_name"] = val
+
+		if err := tftypes.ValidateValue(objectType, vals); err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		return tftypes.NewValue(objectType, vals), nil
+	case attr.ValueStateNull:
+		return tftypes.NewValue(objectType, nil), nil
+	case attr.ValueStateUnknown:
+		return tftypes.NewValue(objectType, tftypes.UnknownValue), nil
+	default:
+		panic(fmt.Sprintf("unhandled Object state in ToTerraformValue: %s", v.state))
+	}
+}
+
+func (v OrderValue) IsNull() bool {
+	return v.state == attr.ValueStateNull
+}
+
+func (v OrderValue) IsUnknown() bool {
+	return v.state == attr.ValueStateUnknown
+}
+
+func (v OrderValue) String() string {
+	return "OrderValue"
+}
+
+func (v OrderValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	attributeTypes := map[string]attr.Type{
+		"order_id":     basetypes.StringType{},
+		"order_number": basetypes.StringType{},
+		"order_status": basetypes.StringType{},
+		"product_id":   basetypes.StringType{},
+		"product_name": basetypes.StringType{},
+	}
+
+	if v.IsNull() {
+		return types.ObjectNull(attributeTypes), diags
+	}
+
+	if v.IsUnknown() {
+		return types.ObjectUnknown(attributeTypes), diags
+	}
+
+	objVal, diags := types.ObjectValue(
+		attributeTypes,
+		map[string]attr.Value{
+			"order_id":     v.OrderId,
+			"order_number": v.OrderNumber,
+			"order_status": v.OrderStatus,
+			"product_id":   v.ProductId,
+			"product_name": v.ProductName,
+		})
+
+	return objVal, diags
+}
+
+func (v OrderValue) Equal(o attr.Value) bool {
+	other, ok := o.(OrderValue)
+
+	if !ok {
+		return false
+	}
+
+	if v.state != other.state {
+		return false
+	}
+
+	if v.state != attr.ValueStateKnown {
+		return true
+	}
+
+	if !v.OrderId.Equal(other.OrderId) {
+		return false
+	}
+
+	if !v.OrderNumber.Equal(other.OrderNumber) {
+		return false
+	}
+
+	if !v.OrderStatus.Equal(other.OrderStatus) {
+		return false
+	}
+
+	if !v.ProductId.Equal(other.ProductId) {
+		return false
+	}
+
+	if !v.ProductName.Equal(other.ProductName) {
+		return false
+	}
+
+	return true
+}
+
+func (v OrderValue) Type(ctx context.Context) attr.Type {
+	return OrderType{
+		basetypes.ObjectType{
+			AttrTypes: v.AttributeTypes(ctx),
+		},
+	}
+}
+
+func (v OrderValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
+	return map[string]attr.Type{
+		"order_id":     basetypes.StringType{},
+		"order_number": basetypes.StringType{},
+		"order_status": basetypes.StringType{},
+		"product_id":   basetypes.StringType{},
+		"product_name": basetypes.StringType{},
 	}
 }
 

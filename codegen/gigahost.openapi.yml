@@ -888,6 +888,10 @@ components:
           description: IP addresses assigned to the server.
           items:
             $ref: '#/components/schemas/ServerIP'
+        order:
+          $ref: '#/components/schemas/ServerOrder'
+        datacenter:
+          $ref: '#/components/schemas/ServerDatacenter'
 
     ServerOS:
       type: object
@@ -926,6 +930,35 @@ components:
         ip_gateway:
           type: string
           description: Gateway.
+
+    ServerOrder:
+      type: object
+      properties:
+        order_id:
+          type: string
+          description: Order id.
+        order_number:
+          type: string
+          description: Human-facing order number.
+        order_status:
+          type: string
+          description: Order status (e.g. active or cancelled).
+        product_id:
+          type: string
+          description: Product id.
+        product_name:
+          type: string
+          description: Product name.
+
+    ServerDatacenter:
+      type: object
+      properties:
+        region_id:
+          type: string
+          description: Region id.
+        region_name:
+          type: string
+          description: Region name.
 
     ServerNameRequest:
       type: object

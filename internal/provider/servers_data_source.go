@@ -74,6 +74,33 @@ func (d *serversDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 			return
 		}
 
+		order, orderDiags := types.ObjectValue(
+			datasource_servers.OrderValue{}.AttributeTypes(ctx),
+			map[string]attr.Value{
+				"order_id":     types.StringValue(s.Order.OrderID),
+				"order_number": types.StringValue(s.Order.OrderNumber),
+				"order_status": types.StringValue(s.Order.OrderStatus),
+				"product_id":   types.StringValue(s.Order.ProductID),
+				"product_name": types.StringValue(s.Order.ProductName),
+			},
+		)
+		resp.Diagnostics.Append(orderDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		datacenter, dcDiags := types.ObjectValue(
+			datasource_servers.DatacenterValue{}.AttributeTypes(ctx),
+			map[string]attr.Value{
+				"region_id":   types.StringValue(s.Datacenter.RegionID),
+				"region_name": types.StringValue(s.Datacenter.RegionName),
+			},
+		)
+		resp.Diagnostics.Append(dcDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
 		ipElems := make([]datasource_servers.IpsValue, 0, len(s.IPs))
 		for _, ip := range s.IPs {
 			ipElems = append(ipElems, datasource_servers.NewIpsValueMust(
@@ -115,6 +142,8 @@ func (d *serversDataSource) Read(ctx context.Context, _ datasource.ReadRequest, 
 				"os_id":              types.StringValue(s.OsID),
 				"os":                 os,
 				"ips":                ips,
+				"order":              order,
+				"datacenter":         datacenter,
 			},
 		))
 	}
