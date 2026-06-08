@@ -126,6 +126,7 @@ func (p *GigahostProvider) DataSources(_ context.Context) []func() datasource.Da
 	return []func() datasource.DataSource{
 		NewAccountDataSource,
 		NewSSHKeysDataSource,
+		NewDNSZoneDataSource,
 		NewDNSZonesDataSource,
 		NewDNSRecordsDataSource,
 		NewServerCatalogDataSource,
