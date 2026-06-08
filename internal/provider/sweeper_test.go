@@ -68,4 +68,27 @@ func init() {
 			return nil
 		},
 	})
+
+	resource.AddTestSweepers("gigahost_server", &resource.Sweeper{
+		Name: "gigahost_server",
+		F: func(string) error {
+			c, err := sweepClient()
+			if err != nil {
+				return err
+			}
+			servers, err := c.ListServers(context.Background())
+			if err != nil {
+				return err
+			}
+			for _, srv := range servers {
+				if !strings.HasPrefix(srv.SrvName, "tf-acc-") {
+					continue
+				}
+				if err := c.CancelServer(context.Background(), srv.SrvID); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	})
 }

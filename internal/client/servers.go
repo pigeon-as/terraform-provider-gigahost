@@ -6,23 +6,26 @@ import (
 )
 
 type Server struct {
-	SrvID            string     `json:"srv_id"`
-	SrvName          string     `json:"srv_name"`
-	SrvHostname      string     `json:"srv_hostname"`
-	SrvStatus        flexBool   `json:"srv_status"`
-	SrvStatusRescue  flexBool   `json:"srv_status_rescue"`
-	SrvStatusInstall flexBool   `json:"srv_status_install"`
-	SrvSuspended     flexBool   `json:"srv_suspended"`
-	SrvLocation      string     `json:"srv_location"`
-	SrvType          string     `json:"srv_type"`
-	SrvVpsType       string     `json:"srv_vps_type"`
-	SrvPrimaryIP     string     `json:"srv_primary_ip"`
-	SrvCores         flexInt64  `json:"srv_cores"`
-	SrvRAM           flexInt64  `json:"srv_ram"`
-	ProductID        string     `json:"product_id"`
-	OsID             string     `json:"os_id"`
-	OS               ServerOS   `json:"os"`
-	IPs              []ServerIP `json:"ips"`
+	SrvID             string           `json:"srv_id"`
+	SrvName           string           `json:"srv_name"`
+	SrvHostname       string           `json:"srv_hostname"`
+	SrvStatus         flexBool         `json:"srv_status"`
+	SrvStatusRescue   flexBool         `json:"srv_status_rescue"`
+	SrvStatusInstall  flexBool         `json:"srv_status_install"`
+	SrvSuspended      flexBool         `json:"srv_suspended"`
+	SrvLocation       string           `json:"srv_location"`
+	SrvType           string           `json:"srv_type"`
+	SrvVpsType        string           `json:"srv_vps_type"`
+	SrvPrimaryIP      string           `json:"srv_primary_ip"`
+	SrvCores          flexInt64        `json:"srv_cores"`
+	SrvRAM            flexInt64        `json:"srv_ram"`
+	ProductID         string           `json:"product_id"`
+	OsID              string           `json:"os_id"`
+	OS                ServerOS         `json:"os"`
+	IPs               []ServerIP       `json:"ips"`
+	SrvFeatureBackups flexBool         `json:"srv_feature_backups"`
+	Order             ServerOrder      `json:"order"`
+	Datacenter        ServerDatacenter `json:"datacenter"`
 }
 
 type ServerOS struct {
@@ -39,6 +42,19 @@ type ServerIP struct {
 	IPType    string    `json:"ip_type"`
 	IPNetmask string    `json:"ip_netmask"`
 	IPGateway string    `json:"ip_gateway"`
+}
+
+type ServerOrder struct {
+	OrderID     string `json:"order_id"`
+	OrderNumber string `json:"order_number"`
+	OrderStatus string `json:"order_status"`
+	ProductID   string `json:"product_id"`
+	ProductName string `json:"product_name"`
+}
+
+type ServerDatacenter struct {
+	RegionID   string `json:"region_id"`
+	RegionName string `json:"region_name"`
 }
 
 func (c *Client) ListServers(ctx context.Context) ([]Server, error) {

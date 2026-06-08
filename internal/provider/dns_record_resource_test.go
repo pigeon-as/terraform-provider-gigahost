@@ -180,3 +180,41 @@ func testAccCheckDNSRecordDestroy(s *terraform.State) error {
 	}
 	return nil
 }
+
+func TestAccDNSRecordResource_disappears(t *testing.T) {
+	zoneName := testAccZoneName()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckDNSRecordDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:             testAccDNSRecordConfig(zoneName, "  record_name  = \"gone\"\n  record_type  = \"A\"\n  record_value = \"203.0.113.50\""),
+				Check:              testAccCheckDNSRecordDisappears("gigahost_dns_record.test"),
+				ExpectNonEmptyPlan: true,
+			},
+		},
+	})
+}
+
+func testAccCheckDNSRecordDisappears(resourceName string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource not found: %s", resourceName)
+		}
+		c, err := sweepClient()
+		if err != nil {
+			return err
+		}
+		return c.DeleteRecord(
+			context.Background(),
+			rs.Primary.Attributes["zone_id"],
+			rs.Primary.Attributes["record_id"],
+			rs.Primary.Attributes["record_name"],
+			rs.Primary.Attributes["record_type"],
+			rs.Primary.Attributes["record_value"],
+		)
+	}
+}

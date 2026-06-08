@@ -453,7 +453,7 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			break
 		}
 	}
-	if found == nil {
+	if found == nil || strings.EqualFold(found.Order.OrderStatus, "cancelled") {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -467,6 +467,34 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			state.Ipv6 = types.StringValue(ip.IPAddress)
 			break
 		}
+	}
+
+	if state.ProductName.IsNull() && found.Order.ProductName != "" {
+		state.ProductName = types.StringValue(found.Order.ProductName)
+	}
+	if state.ProductId.IsNull() {
+		if id, err := strconv.ParseInt(found.Order.ProductID, 10, 64); err == nil && id != 0 {
+			state.ProductId = types.Int64Value(id)
+		}
+	}
+	if state.Region.IsNull() && found.Datacenter.RegionName != "" {
+		state.Region = types.StringValue(found.Datacenter.RegionName)
+	}
+	if state.RegionId.IsNull() {
+		if id, err := strconv.ParseInt(found.Datacenter.RegionID, 10, 64); err == nil && id != 0 {
+			state.RegionId = types.Int64Value(id)
+		}
+	}
+	if state.OsId.IsNull() {
+		if id := int64(found.OS.OsID); id != 0 {
+			state.OsId = types.Int64Value(id)
+		}
+	}
+	if state.Rescue.IsNull() && bool(found.SrvStatusRescue) {
+		state.Rescue = types.BoolValue(true)
+	}
+	if state.Backups.IsNull() && bool(found.SrvFeatureBackups) {
+		state.Backups = types.BoolValue(true)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
