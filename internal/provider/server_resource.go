@@ -34,6 +34,7 @@ var (
 	_ resource.ResourceWithConfigValidators = &serverResource{}
 	_ resource.ResourceWithModifyPlan       = &serverResource{}
 	_ resource.ResourceWithImportState      = &serverResource{}
+	_ resource.ResourceWithValidateConfig   = &serverResource{}
 )
 
 func NewServerResource() resource.Resource {
@@ -79,6 +80,22 @@ func (r *serverResource) ConfigValidators(_ context.Context) []resource.ConfigVa
 			path.MatchRoot("os_distro"),
 			path.MatchRoot("os_version"),
 		),
+	}
+}
+
+func (r *serverResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var data serverResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	hasOS := !data.OsDistro.IsNull() && !data.OsDistro.IsUnknown()
+	hasRescue := !data.Rescue.IsNull() && !data.Rescue.IsUnknown() && data.Rescue.ValueBool()
+	if hasOS == hasRescue {
+		resp.Diagnostics.AddError(
+			"Invalid OS or Rescue Configuration",
+			"Provide os_distro and os_version to install an OS, or set rescue = true (exactly one).",
+		)
 	}
 }
 
@@ -252,6 +269,14 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 	needProduct := plan.ProductId.IsUnknown() && !plan.ProductName.IsUnknown()
 	needRegion := plan.RegionId.IsUnknown() && !plan.Region.IsUnknown()
 	needOS := !plan.OsDistro.IsNull() && !plan.OsDistro.IsUnknown() && !plan.OsVersion.IsNull() && !plan.OsVersion.IsUnknown()
+	if needOS && !req.State.Raw.IsNull() {
+		var stateDistro, stateVersion types.String
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("os_distro"), &stateDistro)...)
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("os_version"), &stateVersion)...)
+		if plan.OsDistro.Equal(stateDistro) && plan.OsVersion.Equal(stateVersion) {
+			needOS = false
+		}
+	}
 
 	if needProduct || needRegion {
 		catalog, err := r.client.GetDeployCatalog(ctx)
@@ -361,21 +386,6 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		}
 		v := osID.ValueInt64()
 		osIDPtr = &v
-	}
-
-	if osIDPtr == nil && !plan.Rescue.ValueBool() {
-		resp.Diagnostics.AddError(
-			"Missing OS or Rescue",
-			"Provide os_distro and os_version to install an OS, or set rescue = true.",
-		)
-		return
-	}
-	if osIDPtr != nil && plan.Rescue.ValueBool() {
-		resp.Diagnostics.AddError(
-			"Conflicting OS and Rescue",
-			"Set either os_distro/os_version or rescue, not both.",
-		)
-		return
 	}
 
 	var sshKeys []int64
