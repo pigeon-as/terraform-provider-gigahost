@@ -42,12 +42,16 @@ resource "gigahost_server" "example" {
 
 ### Read-Only
 
+- `currency` (String) Currency of the pricing.
 - `ipv4` (String) Primary IPv4 address.
 - `ipv6` (String) Primary IPv6 address.
+- `monthly_cap` (Number) Monthly price cap (the most charged per month).
 - `order_id` (Number) Id of the deployment order.
+- `order_number` (Number) Human-facing order number for the deployment.
 - `os_id` (Number) Resolved OS image id (from os_distro + os_version).
-- `price_id` (Number) Resolved price id (from tier + memory).
-- `product_id` (Number) Resolved product id (from tier + memory).
+- `price_id` (Number) Resolved price id (from product_name).
+- `product_id` (Number) Resolved product id (from product_name).
+- `rate_hourly` (Number) Hourly rate for the server.
 - `region_id` (Number) Resolved region id (from region).
 - `root_password` (String, Sensitive) Initial root password (only set when the server is deployed without an SSH key).
 - `server_id` (String) Server id (srv_id).
