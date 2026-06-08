@@ -130,6 +130,8 @@ func (p *GigahostProvider) DataSources(_ context.Context) []func() datasource.Da
 		NewDNSZonesDataSource,
 		NewDNSRecordsDataSource,
 		NewServerCatalogDataSource,
+		NewServersDataSource,
+		NewServerDataSource,
 		NewOSDataSource,
 	}
 }

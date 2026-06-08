@@ -387,6 +387,218 @@
 			}
 		},
 		{
+			"name": "servers",
+			"schema": {
+				"attributes": [
+					{
+						"name": "servers",
+						"list_nested": {
+							"computed_optional_required": "computed",
+							"nested_object": {
+								"attributes": [
+									{
+										"name": "ips",
+										"list_nested": {
+											"computed_optional_required": "computed",
+											"nested_object": {
+												"attributes": [
+													{
+														"name": "ip_address",
+														"string": {
+															"computed_optional_required": "computed",
+															"description": "The IP address."
+														}
+													},
+													{
+														"name": "ip_gateway",
+														"string": {
+															"computed_optional_required": "computed",
+															"description": "Gateway."
+														}
+													},
+													{
+														"name": "ip_id",
+														"int64": {
+															"computed_optional_required": "computed",
+															"description": "IP address id."
+														}
+													},
+													{
+														"name": "ip_netmask",
+														"string": {
+															"computed_optional_required": "computed",
+															"description": "Netmask."
+														}
+													},
+													{
+														"name": "ip_reverse",
+														"string": {
+															"computed_optional_required": "computed",
+															"description": "Reverse DNS (PTR) for the address."
+														}
+													},
+													{
+														"name": "ip_type",
+														"string": {
+															"computed_optional_required": "computed",
+															"description": "Address type (primary or extra)."
+														}
+													},
+													{
+														"name": "ip_v4v6",
+														"string": {
+															"computed_optional_required": "computed",
+															"description": "Address family (ipv4 or ipv6)."
+														}
+													}
+												]
+											},
+											"description": "IP addresses assigned to the server."
+										}
+									},
+									{
+										"name": "os",
+										"single_nested": {
+											"computed_optional_required": "computed",
+											"attributes": [
+												{
+													"name": "os_id",
+													"int64": {
+														"computed_optional_required": "computed",
+														"description": "OS image (version) id."
+													}
+												},
+												{
+													"name": "os_name",
+													"string": {
+														"computed_optional_required": "computed",
+														"description": "OS image name."
+													}
+												},
+												{
+													"name": "os_release",
+													"string": {
+														"computed_optional_required": "computed",
+														"description": "OS release/version."
+													}
+												}
+											]
+										}
+									},
+									{
+										"name": "os_id",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Installed OS image (version) id."
+										}
+									},
+									{
+										"name": "product_id",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Product id."
+										}
+									},
+									{
+										"name": "srv_cores",
+										"int64": {
+											"computed_optional_required": "computed",
+											"description": "Number of CPU cores."
+										}
+									},
+									{
+										"name": "srv_hostname",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Server hostname."
+										}
+									},
+									{
+										"name": "srv_id",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Server id."
+										}
+									},
+									{
+										"name": "srv_location",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Datacenter location code."
+										}
+									},
+									{
+										"name": "srv_name",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Server name (FQDN)."
+										}
+									},
+									{
+										"name": "srv_primary_ip",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Primary IPv4 address."
+										}
+									},
+									{
+										"name": "srv_ram",
+										"int64": {
+											"computed_optional_required": "computed",
+											"description": "Memory, in GB."
+										}
+									},
+									{
+										"name": "srv_status",
+										"bool": {
+											"computed_optional_required": "computed",
+											"description": "Whether the server is running."
+										}
+									},
+									{
+										"name": "srv_status_install",
+										"bool": {
+											"computed_optional_required": "computed",
+											"description": "Whether the server is installing."
+										}
+									},
+									{
+										"name": "srv_status_rescue",
+										"bool": {
+											"computed_optional_required": "computed",
+											"description": "Whether the server is in rescue mode."
+										}
+									},
+									{
+										"name": "srv_suspended",
+										"bool": {
+											"computed_optional_required": "computed",
+											"description": "Whether the server is suspended."
+										}
+									},
+									{
+										"name": "srv_type",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Server type (vps or dedicated)."
+										}
+									},
+									{
+										"name": "srv_vps_type",
+										"string": {
+											"computed_optional_required": "computed",
+											"description": "Virtualization type (e.g. kvm)."
+										}
+									}
+								]
+							},
+							"description": "Servers on the account."
+						}
+					}
+				]
+			}
+		},
+		{
 			"name": "ssh_keys",
 			"schema": {
 				"attributes": [

@@ -6,6 +6,8 @@ FEATURES:
 * **New Data Source:** `gigahost_dns_zone`
 * **New Data Source:** `gigahost_os`
 * **New Data Source:** `gigahost_server_catalog`
+* **New Data Source:** `gigahost_server`
+* **New Data Source:** `gigahost_servers`
 
 ENHANCEMENTS:
 

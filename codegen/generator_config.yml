@@ -41,3 +41,8 @@ data_sources:
     read:
       path: /deploy/servers
       method: GET
+
+  servers:
+    read:
+      path: /servers
+      method: GET

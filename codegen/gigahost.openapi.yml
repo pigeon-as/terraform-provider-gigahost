@@ -317,6 +317,17 @@ paths:
                 items:
                   $ref: '#/components/schemas/OS'
 
+  /servers:
+    get:
+      operationId: listServers
+      responses:
+        "200":
+          description: The servers on the account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServersData'
+
   /servers/{id}/name:
     put:
       operationId: updateServerName
@@ -812,6 +823,109 @@ components:
         os_slow_install:
           type: boolean
           description: Whether the image is slow to install.
+
+    ServersData:
+      type: object
+      properties:
+        servers:
+          type: array
+          description: Servers on the account.
+          items:
+            $ref: '#/components/schemas/Server'
+
+    Server:
+      type: object
+      properties:
+        srv_id:
+          type: string
+          description: Server id.
+        srv_name:
+          type: string
+          description: Server name (FQDN).
+        srv_hostname:
+          type: string
+          description: Server hostname.
+        srv_status:
+          type: boolean
+          description: Whether the server is running.
+        srv_status_rescue:
+          type: boolean
+          description: Whether the server is in rescue mode.
+        srv_status_install:
+          type: boolean
+          description: Whether the server is installing.
+        srv_suspended:
+          type: boolean
+          description: Whether the server is suspended.
+        srv_location:
+          type: string
+          description: Datacenter location code.
+        srv_type:
+          type: string
+          description: Server type (vps or dedicated).
+        srv_vps_type:
+          type: string
+          description: Virtualization type (e.g. kvm).
+        srv_primary_ip:
+          type: string
+          description: Primary IPv4 address.
+        srv_cores:
+          type: integer
+          description: Number of CPU cores.
+        srv_ram:
+          type: integer
+          description: Memory, in GB.
+        product_id:
+          type: string
+          description: Product id.
+        os_id:
+          type: string
+          description: Installed OS image (version) id.
+        os:
+          $ref: '#/components/schemas/ServerOS'
+        ips:
+          type: array
+          description: IP addresses assigned to the server.
+          items:
+            $ref: '#/components/schemas/ServerIP'
+
+    ServerOS:
+      type: object
+      properties:
+        os_id:
+          type: integer
+          description: OS image (version) id.
+        os_name:
+          type: string
+          description: OS image name.
+        os_release:
+          type: string
+          description: OS release/version.
+
+    ServerIP:
+      type: object
+      properties:
+        ip_id:
+          type: integer
+          description: IP address id.
+        ip_address:
+          type: string
+          description: The IP address.
+        ip_v4v6:
+          type: string
+          description: Address family (ipv4 or ipv6).
+        ip_reverse:
+          type: string
+          description: Reverse DNS (PTR) for the address.
+        ip_type:
+          type: string
+          description: Address type (primary or extra).
+        ip_netmask:
+          type: string
+          description: Netmask.
+        ip_gateway:
+          type: string
+          description: Gateway.
 
     ServerNameRequest:
       type: object
