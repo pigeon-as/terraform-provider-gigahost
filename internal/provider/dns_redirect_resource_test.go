@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -78,10 +77,7 @@ func TestAccDNSRedirectResource_basic(t *testing.T) {
 }
 
 func testAccCheckDNSRedirectDestroy(s *terraform.State) error {
-	c, err := client.NewClient(&client.Config{
-		Address: os.Getenv("GIGAHOST_BASE_URL"),
-		Token:   os.Getenv("GIGAHOST_API_TOKEN"),
-	})
+	c, err := sweepClient()
 	if err != nil {
 		return err
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/go-retryablehttp"
 )
 
@@ -61,7 +62,8 @@ func NewClient(config *Config) (*Client, error) {
 
 	httpClient := config.HTTPClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: defaultTimeout}
+		httpClient = cleanhttp.DefaultPooledClient()
+		httpClient.Timeout = defaultTimeout
 	}
 
 	retryClient := &retryablehttp.Client{
@@ -83,18 +85,20 @@ func NewClient(config *Config) (*Client, error) {
 	}, nil
 }
 
+type idempotentKey struct{}
+
 func retryPolicy(ctx context.Context, resp *http.Response, err error) (bool, error) {
 	if ctx.Err() != nil {
 		return false, ctx.Err()
 	}
+	idempotent, _ := ctx.Value(idempotentKey{}).(bool)
 	if err != nil {
-		return false, err
+		return idempotent, err
 	}
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return true, nil
 	}
-	if resp.StatusCode >= 500 && resp.StatusCode != http.StatusNotImplemented &&
-		resp.Request != nil && isIdempotentMethod(resp.Request.Method) {
+	if idempotent && (resp.StatusCode == 0 || (resp.StatusCode >= 500 && resp.StatusCode != http.StatusNotImplemented)) {
 		return true, nil
 	}
 	return false, nil
@@ -125,6 +129,9 @@ func (c *Client) newRequest(ctx context.Context, method, apiPath string, query u
 		rawBody = encoded
 	}
 
+	if isIdempotentMethod(method) {
+		ctx = context.WithValue(ctx, idempotentKey{}, true)
+	}
 	req, err := retryablehttp.NewRequestWithContext(ctx, method, endpoint.String(), rawBody)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)

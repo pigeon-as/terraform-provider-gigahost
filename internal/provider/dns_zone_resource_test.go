@@ -76,10 +76,7 @@ resource "gigahost_dns_zone" "test" {
 }
 
 func testAccCheckDNSZoneDestroy(s *terraform.State) error {
-	c, err := client.NewClient(&client.Config{
-		Address: os.Getenv("GIGAHOST_BASE_URL"),
-		Token:   os.Getenv("GIGAHOST_API_TOKEN"),
-	})
+	c, err := sweepClient()
 	if err != nil {
 		return err
 	}

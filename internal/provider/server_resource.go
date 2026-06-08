@@ -92,7 +92,8 @@ func (r *serverResource) ValidateConfig(ctx context.Context, req resource.Valida
 	hasOS := !data.OsDistro.IsNull() && !data.OsDistro.IsUnknown()
 	hasRescue := !data.Rescue.IsNull() && !data.Rescue.IsUnknown() && data.Rescue.ValueBool()
 	if hasOS == hasRescue {
-		resp.Diagnostics.AddError(
+		resp.Diagnostics.AddAttributeError(
+			path.Root("rescue"),
 			"Invalid OS or Rescue Configuration",
 			"Provide os_distro and os_version to install an OS, or set rescue = true (exactly one).",
 		)
@@ -281,7 +282,7 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 	if needProduct || needRegion {
 		catalog, err := r.client.GetDeployCatalog(ctx)
 		if err != nil {
-			resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
+			// Resolve at apply time rather than fail the plan on a transient catalog error.
 			return
 		}
 		if needProduct {
@@ -315,7 +316,7 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 	if needOS {
 		osCatalog, err := r.client.GetOSCatalog(ctx)
 		if err != nil {
-			resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
+			// Resolve os_id at apply time rather than failing the plan (see above).
 			return
 		}
 		osID, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())

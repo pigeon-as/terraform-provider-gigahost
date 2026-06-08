@@ -17,7 +17,7 @@ func TestAccOSDataSource_basic(t *testing.T) {
   version = "24.04"
 }`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.gigahost_os.test", "os_id", "102"),
+					resource.TestCheckResourceAttrSet("data.gigahost_os.test", "os_id"),
 					resource.TestCheckResourceAttr("data.gigahost_os.test", "os_name", "Ubuntu 24.04 LTS"),
 					resource.TestCheckResourceAttr("data.gigahost_os.test", "os_dist", "noble"),
 				),

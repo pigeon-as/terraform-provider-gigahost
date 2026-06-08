@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -88,10 +87,7 @@ resource "gigahost_ssh_key" "test" {
 }
 
 func testAccCheckSSHKeyDestroy(s *terraform.State) error {
-	c, err := client.NewClient(&client.Config{
-		Address: os.Getenv("GIGAHOST_BASE_URL"),
-		Token:   os.Getenv("GIGAHOST_API_TOKEN"),
-	})
+	c, err := sweepClient()
 	if err != nil {
 		return err
 	}
