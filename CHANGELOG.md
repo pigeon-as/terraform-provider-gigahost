@@ -1,3 +1,16 @@
+## 0.2.1 (June 9, 2026)
+
+ENHANCEMENTS:
+
+* `gigahost_server` - expose `ips`, `os`, `cores`, `ram`, and additional server details as read-only attributes.
+* `gigahost_server` - support a configurable `create` timeout via a `timeouts` block.
+* `gigahost_server` data source - add `order` and `datacenter` (parity with the `gigahost_servers` data source).
+
+BUG FIXES:
+
+* `gigahost_server` - `terraform validate` no longer reports a spurious OS/rescue configuration error when `os_distro`, `os_version`, or `rescue` are set from variables.
+* `gigahost_server` - reordering `ssh_keys` no longer forces the server to be replaced (it is now a set).
+
 ## 0.2.0 (June 8, 2026)
 
 FEATURES:
