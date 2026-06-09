@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -50,39 +51,39 @@ type serverResource struct {
 }
 
 type serverResourceModel struct {
-	Name         types.String    `tfsdk:"name"`
-	ProductName  types.String    `tfsdk:"product_name"`
-	Region       types.String    `tfsdk:"region"`
-	OsDistro     types.String    `tfsdk:"os_distro"`
-	OsVersion    types.String    `tfsdk:"os_version"`
-	Rescue       types.Bool      `tfsdk:"rescue"`
-	Hostname     types.String    `tfsdk:"hostname"`
-	SshKeys      types.Set       `tfsdk:"ssh_keys"`
-	Backups      types.Bool      `tfsdk:"backups"`
-	ProductId    types.Int64     `tfsdk:"product_id"`
-	PriceId      types.Int64     `tfsdk:"price_id"`
-	RegionId     types.Int64     `tfsdk:"region_id"`
-	OsId         types.Int64     `tfsdk:"os_id"`
-	ServerId     types.String    `tfsdk:"server_id"`
-	OrderId      types.Int64     `tfsdk:"order_id"`
-	Ipv4         types.String    `tfsdk:"ipv4"`
-	Ipv6         types.String    `tfsdk:"ipv6"`
-	RootPassword types.String    `tfsdk:"root_password"`
-	OrderNumber  types.Int64     `tfsdk:"order_number"`
-	RateHourly   types.Float64   `tfsdk:"rate_hourly"`
-	MonthlyCap   types.Int64     `tfsdk:"monthly_cap"`
-	Currency     types.String    `tfsdk:"currency"`
-	Cores        types.Int64     `tfsdk:"cores"`
-	Ram          types.Int64     `tfsdk:"ram"`
-	Location     types.String    `tfsdk:"location"`
-	Type         types.String    `tfsdk:"type"`
-	VpsType      types.String    `tfsdk:"vps_type"`
-	Running      types.Bool      `tfsdk:"running"`
-	Installing   types.Bool      `tfsdk:"installing"`
-	Suspended    types.Bool      `tfsdk:"suspended"`
-	Os           *serverOSModel  `tfsdk:"os"`
-	Ips          []serverIPModel `tfsdk:"ips"`
-	Timeouts     timeouts.Value  `tfsdk:"timeouts"`
+	Name         types.String   `tfsdk:"name"`
+	ProductName  types.String   `tfsdk:"product_name"`
+	Region       types.String   `tfsdk:"region"`
+	OsDistro     types.String   `tfsdk:"os_distro"`
+	OsVersion    types.String   `tfsdk:"os_version"`
+	Rescue       types.Bool     `tfsdk:"rescue"`
+	Hostname     types.String   `tfsdk:"hostname"`
+	SshKeys      types.Set      `tfsdk:"ssh_keys"`
+	Backups      types.Bool     `tfsdk:"backups"`
+	ProductId    types.Int64    `tfsdk:"product_id"`
+	PriceId      types.Int64    `tfsdk:"price_id"`
+	RegionId     types.Int64    `tfsdk:"region_id"`
+	OsId         types.Int64    `tfsdk:"os_id"`
+	ServerId     types.String   `tfsdk:"server_id"`
+	OrderId      types.Int64    `tfsdk:"order_id"`
+	Ipv4         types.String   `tfsdk:"ipv4"`
+	Ipv6         types.String   `tfsdk:"ipv6"`
+	RootPassword types.String   `tfsdk:"root_password"`
+	OrderNumber  types.Int64    `tfsdk:"order_number"`
+	RateHourly   types.Float64  `tfsdk:"rate_hourly"`
+	MonthlyCap   types.Int64    `tfsdk:"monthly_cap"`
+	Currency     types.String   `tfsdk:"currency"`
+	Cores        types.Int64    `tfsdk:"cores"`
+	Ram          types.Int64    `tfsdk:"ram"`
+	Location     types.String   `tfsdk:"location"`
+	Type         types.String   `tfsdk:"type"`
+	VpsType      types.String   `tfsdk:"vps_type"`
+	Running      types.Bool     `tfsdk:"running"`
+	Installing   types.Bool     `tfsdk:"installing"`
+	Suspended    types.Bool     `tfsdk:"suspended"`
+	Os           types.Object   `tfsdk:"os"`
+	Ips          types.List     `tfsdk:"ips"`
+	Timeouts     timeouts.Value `tfsdk:"timeouts"`
 }
 
 func (r *serverResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -617,6 +618,22 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 	}
 }
 
+var serverOSAttrTypes = map[string]attr.Type{
+	"os_id":      types.Int64Type,
+	"os_name":    types.StringType,
+	"os_release": types.StringType,
+}
+
+var serverIPAttrTypes = map[string]attr.Type{
+	"ip_id":      types.Int64Type,
+	"ip_address": types.StringType,
+	"ip_v4v6":    types.StringType,
+	"ip_reverse": types.StringType,
+	"ip_type":    types.StringType,
+	"ip_netmask": types.StringType,
+	"ip_gateway": types.StringType,
+}
+
 func applyServerState(state *serverResourceModel, s *client.Server) {
 	if s == nil {
 		state.Cores = types.Int64Null()
@@ -627,8 +644,8 @@ func applyServerState(state *serverResourceModel, s *client.Server) {
 		state.Running = types.BoolNull()
 		state.Installing = types.BoolNull()
 		state.Suspended = types.BoolNull()
-		state.Os = nil
-		state.Ips = []serverIPModel{}
+		state.Os = types.ObjectNull(serverOSAttrTypes)
+		state.Ips = types.ListNull(types.ObjectType{AttrTypes: serverIPAttrTypes})
 		return
 	}
 
@@ -648,24 +665,24 @@ func applyServerState(state *serverResourceModel, s *client.Server) {
 	state.Running = types.BoolValue(bool(s.SrvStatus))
 	state.Installing = types.BoolValue(bool(s.SrvStatusInstall))
 	state.Suspended = types.BoolValue(bool(s.SrvSuspended))
-	state.Os = &serverOSModel{
-		OsId:      types.Int64Value(int64(s.OS.OsID)),
-		OsName:    types.StringValue(s.OS.OsName),
-		OsRelease: types.StringValue(s.OS.OsRelease),
-	}
-	ips := make([]serverIPModel, 0, len(s.IPs))
+	state.Os = types.ObjectValueMust(serverOSAttrTypes, map[string]attr.Value{
+		"os_id":      types.Int64Value(int64(s.OS.OsID)),
+		"os_name":    types.StringValue(s.OS.OsName),
+		"os_release": types.StringValue(s.OS.OsRelease),
+	})
+	ipElems := make([]attr.Value, 0, len(s.IPs))
 	for _, ip := range s.IPs {
-		ips = append(ips, serverIPModel{
-			IpId:      types.Int64Value(int64(ip.IPID)),
-			IpAddress: types.StringValue(ip.IPAddress),
-			IpV4v6:    types.StringValue(ip.IPv4v6),
-			IpReverse: types.StringValue(ip.IPReverse),
-			IpType:    types.StringValue(ip.IPType),
-			IpNetmask: types.StringValue(ip.IPNetmask),
-			IpGateway: types.StringValue(ip.IPGateway),
-		})
+		ipElems = append(ipElems, types.ObjectValueMust(serverIPAttrTypes, map[string]attr.Value{
+			"ip_id":      types.Int64Value(int64(ip.IPID)),
+			"ip_address": types.StringValue(ip.IPAddress),
+			"ip_v4v6":    types.StringValue(ip.IPv4v6),
+			"ip_reverse": types.StringValue(ip.IPReverse),
+			"ip_type":    types.StringValue(ip.IPType),
+			"ip_netmask": types.StringValue(ip.IPNetmask),
+			"ip_gateway": types.StringValue(ip.IPGateway),
+		}))
 	}
-	state.Ips = ips
+	state.Ips = types.ListValueMust(types.ObjectType{AttrTypes: serverIPAttrTypes}, ipElems)
 }
 
 func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
