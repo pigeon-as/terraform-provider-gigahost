@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -15,10 +16,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
@@ -46,28 +48,29 @@ type serverResource struct {
 }
 
 type serverResourceModel struct {
-	Name         types.String  `tfsdk:"name"`
-	ProductName  types.String  `tfsdk:"product_name"`
-	Region       types.String  `tfsdk:"region"`
-	OsDistro     types.String  `tfsdk:"os_distro"`
-	OsVersion    types.String  `tfsdk:"os_version"`
-	Rescue       types.Bool    `tfsdk:"rescue"`
-	Hostname     types.String  `tfsdk:"hostname"`
-	SshKeys      types.List    `tfsdk:"ssh_keys"`
-	Backups      types.Bool    `tfsdk:"backups"`
-	ProductId    types.Int64   `tfsdk:"product_id"`
-	PriceId      types.Int64   `tfsdk:"price_id"`
-	RegionId     types.Int64   `tfsdk:"region_id"`
-	OsId         types.Int64   `tfsdk:"os_id"`
-	ServerId     types.String  `tfsdk:"server_id"`
-	OrderId      types.Int64   `tfsdk:"order_id"`
-	Ipv4         types.String  `tfsdk:"ipv4"`
-	Ipv6         types.String  `tfsdk:"ipv6"`
-	RootPassword types.String  `tfsdk:"root_password"`
-	OrderNumber  types.Int64   `tfsdk:"order_number"`
-	RateHourly   types.Float64 `tfsdk:"rate_hourly"`
-	MonthlyCap   types.Int64   `tfsdk:"monthly_cap"`
-	Currency     types.String  `tfsdk:"currency"`
+	Name         types.String   `tfsdk:"name"`
+	ProductName  types.String   `tfsdk:"product_name"`
+	Region       types.String   `tfsdk:"region"`
+	OsDistro     types.String   `tfsdk:"os_distro"`
+	OsVersion    types.String   `tfsdk:"os_version"`
+	Rescue       types.Bool     `tfsdk:"rescue"`
+	Hostname     types.String   `tfsdk:"hostname"`
+	SshKeys      types.Set      `tfsdk:"ssh_keys"`
+	Backups      types.Bool     `tfsdk:"backups"`
+	ProductId    types.Int64    `tfsdk:"product_id"`
+	PriceId      types.Int64    `tfsdk:"price_id"`
+	RegionId     types.Int64    `tfsdk:"region_id"`
+	OsId         types.Int64    `tfsdk:"os_id"`
+	ServerId     types.String   `tfsdk:"server_id"`
+	OrderId      types.Int64    `tfsdk:"order_id"`
+	Ipv4         types.String   `tfsdk:"ipv4"`
+	Ipv6         types.String   `tfsdk:"ipv6"`
+	RootPassword types.String   `tfsdk:"root_password"`
+	OrderNumber  types.Int64    `tfsdk:"order_number"`
+	RateHourly   types.Float64  `tfsdk:"rate_hourly"`
+	MonthlyCap   types.Int64    `tfsdk:"monthly_cap"`
+	Currency     types.String   `tfsdk:"currency"`
+	Timeouts     timeouts.Value `tfsdk:"timeouts"`
 }
 
 func (r *serverResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -100,7 +103,7 @@ func (r *serverResource) ValidateConfig(ctx context.Context, req resource.Valida
 	}
 }
 
-func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Deploys and manages an hourly Gigahost cloud server.",
 		Attributes: map[string]schema.Attribute{
@@ -143,12 +146,12 @@ func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				MarkdownDescription: "Requested hostname.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"ssh_keys": schema.ListAttribute{
+			"ssh_keys": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Description:         "Ids of SSH keys to authorize on the server.",
 				MarkdownDescription: "Ids of SSH keys to authorize on the server.",
-				PlanModifiers:       []planmodifier.List{listplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.Set{setplanmodifier.RequiresReplace()},
 			},
 			"backups": schema.BoolAttribute{
 				Optional:            true,
@@ -207,8 +210,8 @@ func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"root_password": schema.StringAttribute{
 				Computed:            true,
 				Sensitive:           true,
-				Description:         "Initial root password (only set when the server is deployed without an SSH key).",
-				MarkdownDescription: "Initial root password (only set when the server is deployed without an SSH key).",
+				Description:         "Initial root password (only set when the server is deployed without an SSH key). Stored in Terraform state in plaintext.",
+				MarkdownDescription: "Initial root password (only set when the server is deployed without an SSH key). Stored in Terraform state in plaintext.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"order_number": schema.Int64Attribute{
@@ -235,6 +238,7 @@ func (r *serverResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				MarkdownDescription: "Currency of the pricing.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{Create: true}),
 		},
 	}
 }
@@ -282,7 +286,7 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 	if needProduct || needRegion {
 		catalog, err := r.client.GetDeployCatalog(ctx)
 		if err != nil {
-			// Resolve at apply time rather than fail the plan on a transient catalog error.
+			resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
 			return
 		}
 		if needProduct {
@@ -316,7 +320,7 @@ func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 	if needOS {
 		osCatalog, err := r.client.GetOSCatalog(ctx)
 		if err != nil {
-			// Resolve os_id at apply time rather than failing the plan (see above).
+			resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
 			return
 		}
 		osID, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())
@@ -341,6 +345,14 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	createTimeout, diags := plan.Timeouts.Create(ctx, serverDeployTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
 
 	productID := plan.ProductId.ValueInt64()
 	priceID := plan.PriceId.ValueInt64()
@@ -460,9 +472,6 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 }
 
 func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*client.DeployStatusServer, error) {
-	ctx, cancel := context.WithTimeout(ctx, serverDeployTimeout)
-	defer cancel()
-
 	ticker := time.NewTicker(serverDeployPollInterval)
 	defer ticker.Stop()
 
@@ -485,8 +494,13 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 				switch status.Servers[i].Status {
 				case "ready", "rescue", "iso":
 					return &status.Servers[i], nil
-				case "error", "failed", "cancelled":
+				case "error", "failed", "cancelled", "suspended":
 					return nil, fmt.Errorf("server (order %d) failed to deploy: status %q", orderID, status.Servers[i].Status)
+				default:
+					tflog.Debug(ctx, "waiting for Gigahost server to deploy", map[string]any{
+						"order_id": orderID,
+						"status":   status.Servers[i].Status,
+					})
 				}
 			}
 		}

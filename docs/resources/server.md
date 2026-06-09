@@ -38,7 +38,8 @@ resource "gigahost_server" "example" {
 - `os_distro` (String) OS distribution to install, e.g. "Ubuntu". Provide os_distro + os_version, or rescue.
 - `os_version` (String) OS version to install, e.g. "24.04" (matches the OS name or release codename).
 - `rescue` (Boolean) Boot the server into rescue mode instead of installing an OS.
-- `ssh_keys` (List of Number) Ids of SSH keys to authorize on the server.
+- `ssh_keys` (Set of Number) Ids of SSH keys to authorize on the server.
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
@@ -53,5 +54,12 @@ resource "gigahost_server" "example" {
 - `product_id` (Number) Resolved product id (from product_name).
 - `rate_hourly` (Number) Hourly rate for the server.
 - `region_id` (Number) Resolved region id (from region).
-- `root_password` (String, Sensitive) Initial root password (only set when the server is deployed without an SSH key).
+- `root_password` (String, Sensitive) Initial root password (only set when the server is deployed without an SSH key). Stored in Terraform state in plaintext.
 - `server_id` (String) Server id (srv_id).
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
