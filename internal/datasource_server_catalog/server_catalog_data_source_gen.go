@@ -114,6 +114,11 @@ func ServerCatalogDataSourceSchema(ctx context.Context) schema.Schema {
 										Description:         "Ids of the regions this product can be deployed in.",
 										MarkdownDescription: "Ids of the regions this product can be deployed in.",
 									},
+									"type": schema.StringAttribute{
+										Computed:            true,
+										Description:         "Product type (vm, dedicated, or auction).",
+										MarkdownDescription: "Product type (vm, dedicated, or auction).",
+									},
 									"vm_bw": schema.StringAttribute{
 										Computed:            true,
 										Description:         "Bandwidth allowance.",
@@ -1335,6 +1340,24 @@ func (t ProductsType) ValueFromObject(ctx context.Context, in basetypes.ObjectVa
 			fmt.Sprintf(`region_ids expected to be basetypes.ListValue, was: %T`, regionIdsAttribute))
 	}
 
+	typeAttribute, ok := attributes["type"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`type is missing from object`)
+
+		return nil, diags
+	}
+
+	typeVal, ok := typeAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`type expected to be basetypes.StringValue, was: %T`, typeAttribute))
+	}
+
 	vmBwAttribute, ok := attributes["vm_bw"]
 
 	if !ok {
@@ -1430,19 +1453,20 @@ func (t ProductsType) ValueFromObject(ctx context.Context, in basetypes.ObjectVa
 	}
 
 	return ProductsValue{
-		PriceId:     priceIdVal,
-		ProductHash: productHashVal,
-		ProductId:   productIdVal,
-		ProductName: productNameVal,
-		RateHourly:  rateHourlyVal,
-		RateMonthly: rateMonthlyVal,
-		RegionIds:   regionIdsVal,
-		VmBw:        vmBwVal,
-		VmBwType:    vmBwTypeVal,
-		VmCores:     vmCoresVal,
-		VmMemory:    vmMemoryVal,
-		VmStorage:   vmStorageVal,
-		state:       attr.ValueStateKnown,
+		PriceId:      priceIdVal,
+		ProductHash:  productHashVal,
+		ProductId:    productIdVal,
+		ProductName:  productNameVal,
+		RateHourly:   rateHourlyVal,
+		RateMonthly:  rateMonthlyVal,
+		RegionIds:    regionIdsVal,
+		ProductsType: typeVal,
+		VmBw:         vmBwVal,
+		VmBwType:     vmBwTypeVal,
+		VmCores:      vmCoresVal,
+		VmMemory:     vmMemoryVal,
+		VmStorage:    vmStorageVal,
+		state:        attr.ValueStateKnown,
 	}, diags
 }
 
@@ -1635,6 +1659,24 @@ func NewProductsValue(attributeTypes map[string]attr.Type, attributes map[string
 			fmt.Sprintf(`region_ids expected to be basetypes.ListValue, was: %T`, regionIdsAttribute))
 	}
 
+	typeAttribute, ok := attributes["type"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`type is missing from object`)
+
+		return NewProductsValueUnknown(), diags
+	}
+
+	typeVal, ok := typeAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`type expected to be basetypes.StringValue, was: %T`, typeAttribute))
+	}
+
 	vmBwAttribute, ok := attributes["vm_bw"]
 
 	if !ok {
@@ -1730,19 +1772,20 @@ func NewProductsValue(attributeTypes map[string]attr.Type, attributes map[string
 	}
 
 	return ProductsValue{
-		PriceId:     priceIdVal,
-		ProductHash: productHashVal,
-		ProductId:   productIdVal,
-		ProductName: productNameVal,
-		RateHourly:  rateHourlyVal,
-		RateMonthly: rateMonthlyVal,
-		RegionIds:   regionIdsVal,
-		VmBw:        vmBwVal,
-		VmBwType:    vmBwTypeVal,
-		VmCores:     vmCoresVal,
-		VmMemory:    vmMemoryVal,
-		VmStorage:   vmStorageVal,
-		state:       attr.ValueStateKnown,
+		PriceId:      priceIdVal,
+		ProductHash:  productHashVal,
+		ProductId:    productIdVal,
+		ProductName:  productNameVal,
+		RateHourly:   rateHourlyVal,
+		RateMonthly:  rateMonthlyVal,
+		RegionIds:    regionIdsVal,
+		ProductsType: typeVal,
+		VmBw:         vmBwVal,
+		VmBwType:     vmBwTypeVal,
+		VmCores:      vmCoresVal,
+		VmMemory:     vmMemoryVal,
+		VmStorage:    vmStorageVal,
+		state:        attr.ValueStateKnown,
 	}, diags
 }
 
@@ -1814,23 +1857,24 @@ func (t ProductsType) ValueType(ctx context.Context) attr.Value {
 var _ basetypes.ObjectValuable = ProductsValue{}
 
 type ProductsValue struct {
-	PriceId     basetypes.Int64Value   `tfsdk:"price_id"`
-	ProductHash basetypes.StringValue  `tfsdk:"product_hash"`
-	ProductId   basetypes.Int64Value   `tfsdk:"product_id"`
-	ProductName basetypes.StringValue  `tfsdk:"product_name"`
-	RateHourly  basetypes.Float64Value `tfsdk:"rate_hourly"`
-	RateMonthly basetypes.Int64Value   `tfsdk:"rate_monthly"`
-	RegionIds   basetypes.ListValue    `tfsdk:"region_ids"`
-	VmBw        basetypes.StringValue  `tfsdk:"vm_bw"`
-	VmBwType    basetypes.StringValue  `tfsdk:"vm_bw_type"`
-	VmCores     basetypes.StringValue  `tfsdk:"vm_cores"`
-	VmMemory    basetypes.StringValue  `tfsdk:"vm_memory"`
-	VmStorage   basetypes.StringValue  `tfsdk:"vm_storage"`
-	state       attr.ValueState
+	PriceId      basetypes.Int64Value   `tfsdk:"price_id"`
+	ProductHash  basetypes.StringValue  `tfsdk:"product_hash"`
+	ProductId    basetypes.Int64Value   `tfsdk:"product_id"`
+	ProductName  basetypes.StringValue  `tfsdk:"product_name"`
+	RateHourly   basetypes.Float64Value `tfsdk:"rate_hourly"`
+	RateMonthly  basetypes.Int64Value   `tfsdk:"rate_monthly"`
+	RegionIds    basetypes.ListValue    `tfsdk:"region_ids"`
+	ProductsType basetypes.StringValue  `tfsdk:"type"`
+	VmBw         basetypes.StringValue  `tfsdk:"vm_bw"`
+	VmBwType     basetypes.StringValue  `tfsdk:"vm_bw_type"`
+	VmCores      basetypes.StringValue  `tfsdk:"vm_cores"`
+	VmMemory     basetypes.StringValue  `tfsdk:"vm_memory"`
+	VmStorage    basetypes.StringValue  `tfsdk:"vm_storage"`
+	state        attr.ValueState
 }
 
 func (v ProductsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	attrTypes := make(map[string]tftypes.Type, 12)
+	attrTypes := make(map[string]tftypes.Type, 13)
 
 	var val tftypes.Value
 	var err error
@@ -1844,6 +1888,7 @@ func (v ProductsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, err
 	attrTypes["region_ids"] = basetypes.ListType{
 		ElemType: types.Int64Type,
 	}.TerraformType(ctx)
+	attrTypes["type"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["vm_bw"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["vm_bw_type"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["vm_cores"] = basetypes.StringType{}.TerraformType(ctx)
@@ -1854,7 +1899,7 @@ func (v ProductsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, err
 
 	switch v.state {
 	case attr.ValueStateKnown:
-		vals := make(map[string]tftypes.Value, 12)
+		vals := make(map[string]tftypes.Value, 13)
 
 		val, err = v.PriceId.ToTerraformValue(ctx)
 
@@ -1911,6 +1956,14 @@ func (v ProductsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, err
 		}
 
 		vals["region_ids"] = val
+
+		val, err = v.ProductsType.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["type"] = val
 
 		val, err = v.VmBw.ToTerraformValue(ctx)
 
@@ -2004,6 +2057,7 @@ func (v ProductsValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue
 			"region_ids": basetypes.ListType{
 				ElemType: types.Int64Type,
 			},
+			"type":       basetypes.StringType{},
 			"vm_bw":      basetypes.StringType{},
 			"vm_bw_type": basetypes.StringType{},
 			"vm_cores":   basetypes.StringType{},
@@ -2022,6 +2076,7 @@ func (v ProductsValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue
 		"region_ids": basetypes.ListType{
 			ElemType: types.Int64Type,
 		},
+		"type":       basetypes.StringType{},
 		"vm_bw":      basetypes.StringType{},
 		"vm_bw_type": basetypes.StringType{},
 		"vm_cores":   basetypes.StringType{},
@@ -2047,6 +2102,7 @@ func (v ProductsValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue
 			"rate_hourly":  v.RateHourly,
 			"rate_monthly": v.RateMonthly,
 			"region_ids":   regionIdsVal,
+			"type":         v.ProductsType,
 			"vm_bw":        v.VmBw,
 			"vm_bw_type":   v.VmBwType,
 			"vm_cores":     v.VmCores,
@@ -2100,6 +2156,10 @@ func (v ProductsValue) Equal(o attr.Value) bool {
 		return false
 	}
 
+	if !v.ProductsType.Equal(other.ProductsType) {
+		return false
+	}
+
 	if !v.VmBw.Equal(other.VmBw) {
 		return false
 	}
@@ -2142,6 +2202,7 @@ func (v ProductsValue) AttributeTypes(ctx context.Context) map[string]attr.Type 
 		"region_ids": basetypes.ListType{
 			ElemType: types.Int64Type,
 		},
+		"type":       basetypes.StringType{},
 		"vm_bw":      basetypes.StringType{},
 		"vm_bw_type": basetypes.StringType{},
 		"vm_cores":   basetypes.StringType{},

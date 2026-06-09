@@ -87,6 +87,7 @@ func (d *serverCatalogDataSource) Read(ctx context.Context, req datasource.ReadR
 					"product_id":   types.Int64Value(p.ProductID),
 					"product_hash": types.StringValue(p.ProductHash),
 					"product_name": types.StringValue(p.ProductName),
+					"type":         types.StringValue(p.Type),
 					"vm_cores":     types.StringValue(p.VMCores),
 					"vm_memory":    types.StringValue(p.VMMemory),
 					"vm_storage":   types.StringValue(p.VMStorage),

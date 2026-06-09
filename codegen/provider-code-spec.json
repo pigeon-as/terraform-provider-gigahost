@@ -339,6 +339,13 @@
 														}
 													},
 													{
+														"name": "type",
+														"string": {
+															"computed_optional_required": "computed",
+															"description": "Product type (vm, dedicated, or auction)."
+														}
+													},
+													{
 														"name": "vm_bw",
 														"string": {
 															"computed_optional_required": "computed",

@@ -58,6 +58,7 @@ Read-Only:
 - `rate_hourly` (Number) Hourly rate.
 - `rate_monthly` (Number) Monthly cap (the most charged per month).
 - `region_ids` (List of Number) Ids of the regions this product can be deployed in.
+- `type` (String) Product type (vm, dedicated, or auction).
 - `vm_bw` (String) Bandwidth allowance.
 - `vm_bw_type` (String) Bandwidth allowance type.
 - `vm_cores` (String) Number of virtual CPU cores.
