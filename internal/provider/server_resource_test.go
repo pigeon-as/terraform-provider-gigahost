@@ -113,6 +113,36 @@ func TestAccServerResource_osInstall(t *testing.T) {
 	})
 }
 
+func testAccServerResourceBareMetalConfig(name string) string {
+	return fmt.Sprintf(`
+resource "gigahost_server" "test" {
+  product_name = "Intro - Intel Core i3 4GB"
+  region       = "Sandefjord"
+  rescue       = true
+  name         = %q
+}
+`, name)
+}
+
+func TestAccServerResource_bareMetal(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckServerDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccServerResourceBareMetalConfig("tf-acc-baremetal"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("gigahost_server.test", "server_id"),
+					resource.TestCheckResourceAttrSet("gigahost_server.test", "ipv4"),
+					resource.TestCheckResourceAttrSet("gigahost_server.test", "product_id"),
+					resource.TestCheckResourceAttrSet("gigahost_server.test", "type"),
+				),
+			},
+		},
+	})
+}
+
 func testAccCheckServerDestroy(s *terraform.State) error {
 	c, err := sweepClient()
 	if err != nil {

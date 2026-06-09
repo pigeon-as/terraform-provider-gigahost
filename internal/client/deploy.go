@@ -24,6 +24,7 @@ type DeployProduct struct {
 	ProductID   int64   `json:"product_id"`
 	ProductHash string  `json:"product_hash"`
 	ProductName string  `json:"product_name"`
+	Type        string  `json:"type"`
 	VMCores     string  `json:"vm_cores"`
 	VMMemory    string  `json:"vm_memory"`
 	VMStorage   string  `json:"vm_storage"`

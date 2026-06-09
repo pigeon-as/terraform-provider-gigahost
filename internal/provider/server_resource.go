@@ -123,7 +123,7 @@ func (r *serverResource) ValidateConfig(ctx context.Context, req resource.Valida
 
 func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Deploys and manages an hourly Gigahost cloud server.",
+		MarkdownDescription: "Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual machine or a dedicated (bare metal) server, depending on the chosen product.",
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Optional:            true,
@@ -165,7 +165,7 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"ssh_keys": schema.SetAttribute{
-				ElementType:         types.Int64Type,
+				ElementType:         types.StringType,
 				Optional:            true,
 				Description:         "Ids of SSH keys to authorize on the server.",
 				MarkdownDescription: "Ids of SSH keys to authorize on the server.",
@@ -497,9 +497,18 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	var sshKeys []int64
 	if !plan.SshKeys.IsNull() && !plan.SshKeys.IsUnknown() {
-		resp.Diagnostics.Append(plan.SshKeys.ElementsAs(ctx, &sshKeys, false)...)
+		var keyIDs []string
+		resp.Diagnostics.Append(plan.SshKeys.ElementsAs(ctx, &keyIDs, false)...)
 		if resp.Diagnostics.HasError() {
 			return
+		}
+		for _, k := range keyIDs {
+			id, err := strconv.ParseInt(k, 10, 64)
+			if err != nil {
+				resp.Diagnostics.AddAttributeError(path.Root("ssh_keys"), "Invalid SSH Key Id", fmt.Sprintf("%q is not a valid SSH key id: %s", k, err))
+				return
+			}
+			sshKeys = append(sshKeys, id)
 		}
 	}
 

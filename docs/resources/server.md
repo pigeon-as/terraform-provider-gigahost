@@ -3,22 +3,61 @@
 page_title: "gigahost_server Resource - gigahost"
 subcategory: ""
 description: |-
-  Deploys and manages an hourly Gigahost cloud server.
+  Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual machine or a dedicated (bare metal) server, depending on the chosen product.
 ---
 
 # gigahost_server (Resource)
 
-Deploys and manages an hourly Gigahost cloud server.
+Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual machine or a dedicated (bare metal) server, depending on the chosen product.
 
 ## Example Usage
 
+### Virtual machine (KVM)
+
 ```terraform
+# A KVM virtual machine running Ubuntu.
 resource "gigahost_server" "example" {
-  name         = "web-01"
   product_name = "KVM Value VPS 4GB"
   region       = "Sandefjord"
   os_distro    = "Ubuntu"
   os_version   = "24.04"
+  name         = "web-01"
+}
+```
+
+### Bare metal (dedicated)
+
+```terraform
+# A dedicated (bare metal) server running Ubuntu.
+resource "gigahost_server" "example" {
+  product_name = "Intro - Intel Core i3 4GB"
+  region       = "Sandefjord"
+  os_distro    = "Ubuntu"
+  os_version   = "24.04"
+  name         = "db-01"
+}
+```
+
+### With SSH keys and backups
+
+```terraform
+# A VM with an SSH key, daily backups, and a longer create timeout.
+resource "gigahost_ssh_key" "example" {
+  key_name = "deploy"
+  key_data = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID... user@example.com"
+}
+
+resource "gigahost_server" "example" {
+  product_name = "KVM Performance VPS 8GB"
+  region       = "Sandefjord"
+  os_distro    = "Ubuntu"
+  os_version   = "24.04"
+  backups      = true
+  ssh_keys     = [gigahost_ssh_key.example.key_id]
+
+  timeouts {
+    create = "45m"
+  }
 }
 ```
 
@@ -38,7 +77,7 @@ resource "gigahost_server" "example" {
 - `os_distro` (String) OS distribution to install, e.g. "Ubuntu". Provide os_distro + os_version, or rescue.
 - `os_version` (String) OS version to install, e.g. "24.04" (matches the OS name or release codename).
 - `rescue` (Boolean) Boot the server into rescue mode instead of installing an OS.
-- `ssh_keys` (Set of Number) Ids of SSH keys to authorize on the server.
+- `ssh_keys` (Set of String) Ids of SSH keys to authorize on the server.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only

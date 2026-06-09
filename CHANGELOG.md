@@ -1,3 +1,13 @@
+## 0.3.0 (June 10, 2026)
+
+BREAKING CHANGES:
+
+* `gigahost_server` - `ssh_keys` ids are now strings (e.g. `["123"]`, matching `gigahost_ssh_key.key_id`) rather than numbers (`[123]`).
+
+ENHANCEMENTS:
+
+* `gigahost_server_catalog` - add per-product `type` (vm, dedicated, or auction).
+
 ## 0.2.1 (June 9, 2026)
 
 ENHANCEMENTS:

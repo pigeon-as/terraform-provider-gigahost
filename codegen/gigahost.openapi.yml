@@ -611,6 +611,9 @@ components:
         product_name:
           type: string
           description: Product name.
+        type:
+          type: string
+          description: Product type (vm, dedicated, or auction).
         vm_cores:
           type: string
           description: Number of virtual CPU cores.

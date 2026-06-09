@@ -1,8 +1,8 @@
-# A KVM virtual machine running Ubuntu.
+# A dedicated (bare metal) server running Ubuntu.
 resource "gigahost_server" "example" {
-  product_name = "KVM Value VPS 4GB"
+  product_name = "Intro - Intel Core i3 4GB"
   region       = "Sandefjord"
   os_distro    = "Ubuntu"
   os_version   = "24.04"
-  name         = "web-01"
+  name         = "db-01"
 }
