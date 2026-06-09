@@ -92,8 +92,13 @@ func (r *serverResource) ValidateConfig(ctx context.Context, req resource.Valida
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	hasOS := !data.OsDistro.IsNull() && !data.OsDistro.IsUnknown()
-	hasRescue := !data.Rescue.IsNull() && !data.Rescue.IsUnknown() && data.Rescue.ValueBool()
+	// Unknown inputs (e.g. terraform validate, or values from other resources)
+	// can't be evaluated; the rule is checked once they are known.
+	if data.OsDistro.IsUnknown() || data.Rescue.IsUnknown() {
+		return
+	}
+	hasOS := !data.OsDistro.IsNull()
+	hasRescue := !data.Rescue.IsNull() && data.Rescue.ValueBool()
 	if hasOS == hasRescue {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("rescue"),
