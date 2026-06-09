@@ -29,23 +29,25 @@ type serverDataSource struct {
 }
 
 type serverDataSourceModel struct {
-	SrvId            types.String    `tfsdk:"srv_id"`
-	SrvName          types.String    `tfsdk:"srv_name"`
-	SrvHostname      types.String    `tfsdk:"srv_hostname"`
-	SrvStatus        types.Bool      `tfsdk:"srv_status"`
-	SrvStatusRescue  types.Bool      `tfsdk:"srv_status_rescue"`
-	SrvStatusInstall types.Bool      `tfsdk:"srv_status_install"`
-	SrvSuspended     types.Bool      `tfsdk:"srv_suspended"`
-	SrvLocation      types.String    `tfsdk:"srv_location"`
-	SrvType          types.String    `tfsdk:"srv_type"`
-	SrvVpsType       types.String    `tfsdk:"srv_vps_type"`
-	SrvPrimaryIp     types.String    `tfsdk:"srv_primary_ip"`
-	SrvCores         types.Int64     `tfsdk:"srv_cores"`
-	SrvRam           types.Int64     `tfsdk:"srv_ram"`
-	ProductId        types.String    `tfsdk:"product_id"`
-	OsId             types.String    `tfsdk:"os_id"`
-	Os               *serverOSModel  `tfsdk:"os"`
-	Ips              []serverIPModel `tfsdk:"ips"`
+	SrvId            types.String           `tfsdk:"srv_id"`
+	SrvName          types.String           `tfsdk:"srv_name"`
+	SrvHostname      types.String           `tfsdk:"srv_hostname"`
+	SrvStatus        types.Bool             `tfsdk:"srv_status"`
+	SrvStatusRescue  types.Bool             `tfsdk:"srv_status_rescue"`
+	SrvStatusInstall types.Bool             `tfsdk:"srv_status_install"`
+	SrvSuspended     types.Bool             `tfsdk:"srv_suspended"`
+	SrvLocation      types.String           `tfsdk:"srv_location"`
+	SrvType          types.String           `tfsdk:"srv_type"`
+	SrvVpsType       types.String           `tfsdk:"srv_vps_type"`
+	SrvPrimaryIp     types.String           `tfsdk:"srv_primary_ip"`
+	SrvCores         types.Int64            `tfsdk:"srv_cores"`
+	SrvRam           types.Int64            `tfsdk:"srv_ram"`
+	ProductId        types.String           `tfsdk:"product_id"`
+	OsId             types.String           `tfsdk:"os_id"`
+	Os               *serverOSModel         `tfsdk:"os"`
+	Ips              []serverIPModel        `tfsdk:"ips"`
+	Order            *serverOrderModel      `tfsdk:"order"`
+	Datacenter       *serverDatacenterModel `tfsdk:"datacenter"`
 }
 
 type serverOSModel struct {
@@ -62,6 +64,19 @@ type serverIPModel struct {
 	IpType    types.String `tfsdk:"ip_type"`
 	IpNetmask types.String `tfsdk:"ip_netmask"`
 	IpGateway types.String `tfsdk:"ip_gateway"`
+}
+
+type serverOrderModel struct {
+	OrderId     types.String `tfsdk:"order_id"`
+	OrderNumber types.String `tfsdk:"order_number"`
+	OrderStatus types.String `tfsdk:"order_status"`
+	ProductId   types.String `tfsdk:"product_id"`
+	ProductName types.String `tfsdk:"product_name"`
+}
+
+type serverDatacenterModel struct {
+	RegionId   types.String `tfsdk:"region_id"`
+	RegionName types.String `tfsdk:"region_name"`
 }
 
 func (d *serverDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -148,6 +163,27 @@ func (d *serverDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 				Computed:            true,
 				Description:         "Installed OS image (version) id.",
 				MarkdownDescription: "Installed OS image (version) id.",
+			},
+			"order": schema.SingleNestedAttribute{
+				Computed:            true,
+				Description:         "Order details.",
+				MarkdownDescription: "Order details.",
+				Attributes: map[string]schema.Attribute{
+					"order_id":     schema.StringAttribute{Computed: true, Description: "Order id.", MarkdownDescription: "Order id."},
+					"order_number": schema.StringAttribute{Computed: true, Description: "Order number.", MarkdownDescription: "Order number."},
+					"order_status": schema.StringAttribute{Computed: true, Description: "Order status.", MarkdownDescription: "Order status."},
+					"product_id":   schema.StringAttribute{Computed: true, Description: "Product id.", MarkdownDescription: "Product id."},
+					"product_name": schema.StringAttribute{Computed: true, Description: "Product name.", MarkdownDescription: "Product name."},
+				},
+			},
+			"datacenter": schema.SingleNestedAttribute{
+				Computed:            true,
+				Description:         "Datacenter location.",
+				MarkdownDescription: "Datacenter location.",
+				Attributes: map[string]schema.Attribute{
+					"region_id":   schema.StringAttribute{Computed: true, Description: "Region id.", MarkdownDescription: "Region id."},
+					"region_name": schema.StringAttribute{Computed: true, Description: "Region name.", MarkdownDescription: "Region name."},
+				},
 			},
 			"os": schema.SingleNestedAttribute{
 				Computed:            true,
@@ -318,6 +354,17 @@ func (d *serverDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 			OsRelease: types.StringValue(s.OS.OsRelease),
 		},
 		Ips: ips,
+		Order: &serverOrderModel{
+			OrderId:     types.StringValue(s.Order.OrderID),
+			OrderNumber: types.StringValue(s.Order.OrderNumber),
+			OrderStatus: types.StringValue(s.Order.OrderStatus),
+			ProductId:   types.StringValue(s.Order.ProductID),
+			ProductName: types.StringValue(s.Order.ProductName),
+		},
+		Datacenter: &serverDatacenterModel{
+			RegionId:   types.StringValue(s.Datacenter.RegionID),
+			RegionName: types.StringValue(s.Datacenter.RegionName),
+		},
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

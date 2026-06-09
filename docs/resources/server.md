@@ -43,19 +43,29 @@ resource "gigahost_server" "example" {
 
 ### Read-Only
 
+- `cores` (Number) Number of CPU cores.
 - `currency` (String) Currency of the pricing.
+- `installing` (Boolean) Whether the server is installing.
+- `ips` (Attributes List) IP addresses assigned to the server. (see [below for nested schema](#nestedatt--ips))
 - `ipv4` (String) Primary IPv4 address.
 - `ipv6` (String) Primary IPv6 address.
+- `location` (String) Datacenter location code.
 - `monthly_cap` (Number) Monthly price cap (the most charged per month).
 - `order_id` (Number) Id of the deployment order.
 - `order_number` (Number) Human-facing order number for the deployment.
+- `os` (Attributes) Installed operating system. (see [below for nested schema](#nestedatt--os))
 - `os_id` (Number) Resolved OS image id (from os_distro + os_version).
 - `price_id` (Number) Resolved price id (from product_name).
 - `product_id` (Number) Resolved product id (from product_name).
+- `ram` (Number) Memory, in GB.
 - `rate_hourly` (Number) Hourly rate for the server.
 - `region_id` (Number) Resolved region id (from region).
 - `root_password` (String, Sensitive) Initial root password (only set when the server is deployed without an SSH key). Stored in Terraform state in plaintext.
+- `running` (Boolean) Whether the server is running.
 - `server_id` (String) Server id (srv_id).
+- `suspended` (Boolean) Whether the server is suspended.
+- `type` (String) Server type (vps or dedicated).
+- `vps_type` (String) Virtualization type (e.g. kvm).
 
 <a id="nestedatt--timeouts"></a>
 ### Nested Schema for `timeouts`
@@ -63,3 +73,27 @@ resource "gigahost_server" "example" {
 Optional:
 
 - `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+
+
+<a id="nestedatt--ips"></a>
+### Nested Schema for `ips`
+
+Read-Only:
+
+- `ip_address` (String) The IP address.
+- `ip_gateway` (String) Gateway.
+- `ip_id` (Number) IP address id.
+- `ip_netmask` (String) Netmask.
+- `ip_reverse` (String) Reverse DNS (PTR) for the address.
+- `ip_type` (String) Address type (primary or extra).
+- `ip_v4v6` (String) Address family (ipv4 or ipv6).
+
+
+<a id="nestedatt--os"></a>
+### Nested Schema for `os`
+
+Read-Only:
+
+- `os_id` (Number) OS image (version) id.
+- `os_name` (String) OS image name.
+- `os_release` (String) OS release/version.

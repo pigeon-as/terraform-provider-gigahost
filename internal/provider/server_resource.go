@@ -16,6 +16,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -48,29 +50,39 @@ type serverResource struct {
 }
 
 type serverResourceModel struct {
-	Name         types.String   `tfsdk:"name"`
-	ProductName  types.String   `tfsdk:"product_name"`
-	Region       types.String   `tfsdk:"region"`
-	OsDistro     types.String   `tfsdk:"os_distro"`
-	OsVersion    types.String   `tfsdk:"os_version"`
-	Rescue       types.Bool     `tfsdk:"rescue"`
-	Hostname     types.String   `tfsdk:"hostname"`
-	SshKeys      types.Set      `tfsdk:"ssh_keys"`
-	Backups      types.Bool     `tfsdk:"backups"`
-	ProductId    types.Int64    `tfsdk:"product_id"`
-	PriceId      types.Int64    `tfsdk:"price_id"`
-	RegionId     types.Int64    `tfsdk:"region_id"`
-	OsId         types.Int64    `tfsdk:"os_id"`
-	ServerId     types.String   `tfsdk:"server_id"`
-	OrderId      types.Int64    `tfsdk:"order_id"`
-	Ipv4         types.String   `tfsdk:"ipv4"`
-	Ipv6         types.String   `tfsdk:"ipv6"`
-	RootPassword types.String   `tfsdk:"root_password"`
-	OrderNumber  types.Int64    `tfsdk:"order_number"`
-	RateHourly   types.Float64  `tfsdk:"rate_hourly"`
-	MonthlyCap   types.Int64    `tfsdk:"monthly_cap"`
-	Currency     types.String   `tfsdk:"currency"`
-	Timeouts     timeouts.Value `tfsdk:"timeouts"`
+	Name         types.String    `tfsdk:"name"`
+	ProductName  types.String    `tfsdk:"product_name"`
+	Region       types.String    `tfsdk:"region"`
+	OsDistro     types.String    `tfsdk:"os_distro"`
+	OsVersion    types.String    `tfsdk:"os_version"`
+	Rescue       types.Bool      `tfsdk:"rescue"`
+	Hostname     types.String    `tfsdk:"hostname"`
+	SshKeys      types.Set       `tfsdk:"ssh_keys"`
+	Backups      types.Bool      `tfsdk:"backups"`
+	ProductId    types.Int64     `tfsdk:"product_id"`
+	PriceId      types.Int64     `tfsdk:"price_id"`
+	RegionId     types.Int64     `tfsdk:"region_id"`
+	OsId         types.Int64     `tfsdk:"os_id"`
+	ServerId     types.String    `tfsdk:"server_id"`
+	OrderId      types.Int64     `tfsdk:"order_id"`
+	Ipv4         types.String    `tfsdk:"ipv4"`
+	Ipv6         types.String    `tfsdk:"ipv6"`
+	RootPassword types.String    `tfsdk:"root_password"`
+	OrderNumber  types.Int64     `tfsdk:"order_number"`
+	RateHourly   types.Float64   `tfsdk:"rate_hourly"`
+	MonthlyCap   types.Int64     `tfsdk:"monthly_cap"`
+	Currency     types.String    `tfsdk:"currency"`
+	Cores        types.Int64     `tfsdk:"cores"`
+	Ram          types.Int64     `tfsdk:"ram"`
+	Location     types.String    `tfsdk:"location"`
+	Type         types.String    `tfsdk:"type"`
+	VpsType      types.String    `tfsdk:"vps_type"`
+	Running      types.Bool      `tfsdk:"running"`
+	Installing   types.Bool      `tfsdk:"installing"`
+	Suspended    types.Bool      `tfsdk:"suspended"`
+	Os           *serverOSModel  `tfsdk:"os"`
+	Ips          []serverIPModel `tfsdk:"ips"`
+	Timeouts     timeouts.Value  `tfsdk:"timeouts"`
 }
 
 func (r *serverResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -242,6 +254,82 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 				Description:         "Currency of the pricing.",
 				MarkdownDescription: "Currency of the pricing.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"cores": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Number of CPU cores.",
+				MarkdownDescription: "Number of CPU cores.",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"ram": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Memory, in GB.",
+				MarkdownDescription: "Memory, in GB.",
+				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+			},
+			"location": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Datacenter location code.",
+				MarkdownDescription: "Datacenter location code.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"type": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Server type (vps or dedicated).",
+				MarkdownDescription: "Server type (vps or dedicated).",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"vps_type": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Virtualization type (e.g. kvm).",
+				MarkdownDescription: "Virtualization type (e.g. kvm).",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"running": schema.BoolAttribute{
+				Computed:            true,
+				Description:         "Whether the server is running.",
+				MarkdownDescription: "Whether the server is running.",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
+			"installing": schema.BoolAttribute{
+				Computed:            true,
+				Description:         "Whether the server is installing.",
+				MarkdownDescription: "Whether the server is installing.",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
+			"suspended": schema.BoolAttribute{
+				Computed:            true,
+				Description:         "Whether the server is suspended.",
+				MarkdownDescription: "Whether the server is suspended.",
+				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
+			"os": schema.SingleNestedAttribute{
+				Computed:            true,
+				Description:         "Installed operating system.",
+				MarkdownDescription: "Installed operating system.",
+				PlanModifiers:       []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Attributes: map[string]schema.Attribute{
+					"os_id":      schema.Int64Attribute{Computed: true, Description: "OS image (version) id.", MarkdownDescription: "OS image (version) id."},
+					"os_name":    schema.StringAttribute{Computed: true, Description: "OS image name.", MarkdownDescription: "OS image name."},
+					"os_release": schema.StringAttribute{Computed: true, Description: "OS release/version.", MarkdownDescription: "OS release/version."},
+				},
+			},
+			"ips": schema.ListNestedAttribute{
+				Computed:            true,
+				Description:         "IP addresses assigned to the server.",
+				MarkdownDescription: "IP addresses assigned to the server.",
+				PlanModifiers:       []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"ip_id":      schema.Int64Attribute{Computed: true, Description: "IP address id.", MarkdownDescription: "IP address id."},
+						"ip_address": schema.StringAttribute{Computed: true, Description: "The IP address.", MarkdownDescription: "The IP address."},
+						"ip_v4v6":    schema.StringAttribute{Computed: true, Description: "Address family (ipv4 or ipv6).", MarkdownDescription: "Address family (ipv4 or ipv6)."},
+						"ip_reverse": schema.StringAttribute{Computed: true, Description: "Reverse DNS (PTR) for the address.", MarkdownDescription: "Reverse DNS (PTR) for the address."},
+						"ip_type":    schema.StringAttribute{Computed: true, Description: "Address type (primary or extra).", MarkdownDescription: "Address type (primary or extra)."},
+						"ip_netmask": schema.StringAttribute{Computed: true, Description: "Netmask.", MarkdownDescription: "Netmask."},
+						"ip_gateway": schema.StringAttribute{Computed: true, Description: "Gateway.", MarkdownDescription: "Gateway."},
+					},
+				},
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{Create: true}),
 		},
@@ -450,8 +538,6 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	state.OsId = osID
 	state.ServerId = types.StringValue(serverID)
 	state.OrderId = types.Int64Value(orderID)
-	state.Ipv4 = types.StringValue(server.IP)
-	state.Ipv6 = types.StringValue(server.IPv6)
 	state.RootPassword = types.StringNull()
 	if server.Password != "" {
 		state.RootPassword = types.StringValue(server.Password)
@@ -463,6 +549,19 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	state.RateHourly = types.Float64Value(result.RateHourly)
 	state.MonthlyCap = types.Int64Value(result.MonthlyCap)
 	state.Currency = types.StringValue(result.Currency)
+
+	var full *client.Server
+	if servers, err := r.client.ListServers(ctx); err == nil {
+		for i := range servers {
+			if equalID(servers[i].SrvID, serverID) {
+				full = &servers[i]
+				break
+			}
+		}
+	}
+	applyServerState(&state, full)
+	state.Ipv4 = types.StringValue(server.IP)
+	state.Ipv6 = types.StringValue(server.IPv6)
 
 	if !plan.Name.IsNull() && plan.Name.ValueString() != "" {
 		if err := r.client.UpdateServerName(ctx, serverID, plan.Name.ValueString()); err != nil {
@@ -518,6 +617,57 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 	}
 }
 
+func applyServerState(state *serverResourceModel, s *client.Server) {
+	if s == nil {
+		state.Cores = types.Int64Null()
+		state.Ram = types.Int64Null()
+		state.Location = types.StringNull()
+		state.Type = types.StringNull()
+		state.VpsType = types.StringNull()
+		state.Running = types.BoolNull()
+		state.Installing = types.BoolNull()
+		state.Suspended = types.BoolNull()
+		state.Os = nil
+		state.Ips = []serverIPModel{}
+		return
+	}
+
+	state.Ipv4 = types.StringValue(s.SrvPrimaryIP)
+	state.Ipv6 = types.StringNull()
+	for _, ip := range s.IPs {
+		if strings.EqualFold(ip.IPv4v6, "ipv6") {
+			state.Ipv6 = types.StringValue(ip.IPAddress)
+			break
+		}
+	}
+	state.Cores = types.Int64Value(int64(s.SrvCores))
+	state.Ram = types.Int64Value(int64(s.SrvRAM))
+	state.Location = types.StringValue(s.SrvLocation)
+	state.Type = types.StringValue(s.SrvType)
+	state.VpsType = types.StringValue(s.SrvVpsType)
+	state.Running = types.BoolValue(bool(s.SrvStatus))
+	state.Installing = types.BoolValue(bool(s.SrvStatusInstall))
+	state.Suspended = types.BoolValue(bool(s.SrvSuspended))
+	state.Os = &serverOSModel{
+		OsId:      types.Int64Value(int64(s.OS.OsID)),
+		OsName:    types.StringValue(s.OS.OsName),
+		OsRelease: types.StringValue(s.OS.OsRelease),
+	}
+	ips := make([]serverIPModel, 0, len(s.IPs))
+	for _, ip := range s.IPs {
+		ips = append(ips, serverIPModel{
+			IpId:      types.Int64Value(int64(ip.IPID)),
+			IpAddress: types.StringValue(ip.IPAddress),
+			IpV4v6:    types.StringValue(ip.IPv4v6),
+			IpReverse: types.StringValue(ip.IPReverse),
+			IpType:    types.StringValue(ip.IPType),
+			IpNetmask: types.StringValue(ip.IPNetmask),
+			IpGateway: types.StringValue(ip.IPGateway),
+		})
+	}
+	state.Ips = ips
+}
+
 func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var state serverResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -546,13 +696,7 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 	if !state.Name.IsNull() {
 		state.Name = types.StringValue(found.SrvName)
 	}
-	state.Ipv4 = types.StringValue(found.SrvPrimaryIP)
-	for _, ip := range found.IPs {
-		if strings.EqualFold(ip.IPv4v6, "ipv6") {
-			state.Ipv6 = types.StringValue(ip.IPAddress)
-			break
-		}
-	}
+	applyServerState(&state, found)
 
 	if state.ProductName.IsNull() && found.Order.ProductName != "" {
 		state.ProductName = types.StringValue(found.Order.ProductName)

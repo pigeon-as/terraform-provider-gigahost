@@ -28,7 +28,9 @@ data "gigahost_server" "example" {
 
 ### Read-Only
 
+- `datacenter` (Attributes) Datacenter location. (see [below for nested schema](#nestedatt--datacenter))
 - `ips` (Attributes List) IP addresses assigned to the server. (see [below for nested schema](#nestedatt--ips))
+- `order` (Attributes) Order details. (see [below for nested schema](#nestedatt--order))
 - `os` (Attributes) Installed operating system. (see [below for nested schema](#nestedatt--os))
 - `os_id` (String) Installed OS image (version) id.
 - `product_id` (String) Product id.
@@ -44,6 +46,15 @@ data "gigahost_server" "example" {
 - `srv_type` (String) Server type (vps or dedicated).
 - `srv_vps_type` (String) Virtualization type (e.g. kvm).
 
+<a id="nestedatt--datacenter"></a>
+### Nested Schema for `datacenter`
+
+Read-Only:
+
+- `region_id` (String) Region id.
+- `region_name` (String) Region name.
+
+
 <a id="nestedatt--ips"></a>
 ### Nested Schema for `ips`
 
@@ -56,6 +67,18 @@ Read-Only:
 - `ip_reverse` (String) Reverse DNS (PTR) for the address.
 - `ip_type` (String) Address type (primary or extra).
 - `ip_v4v6` (String) Address family (ipv4 or ipv6).
+
+
+<a id="nestedatt--order"></a>
+### Nested Schema for `order`
+
+Read-Only:
+
+- `order_id` (String) Order id.
+- `order_number` (String) Order number.
+- `order_status` (String) Order status.
+- `product_id` (String) Product id.
+- `product_name` (String) Product name.
 
 
 <a id="nestedatt--os"></a>
