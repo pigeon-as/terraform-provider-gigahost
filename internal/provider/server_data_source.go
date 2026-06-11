@@ -101,6 +101,7 @@ func (d *serverDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			},
 			"srv_hostname": schema.StringAttribute{
 				Computed:            true,
+				DeprecationMessage:  "Not populated by the API; use srv_name instead.",
 				Description:         "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
 				MarkdownDescription: "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in `srv_name`).",
 			},

@@ -847,6 +847,7 @@ components:
           description: Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.
         srv_hostname:
           type: string
+          deprecated: true
           description: Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).
         srv_status:
           type: boolean

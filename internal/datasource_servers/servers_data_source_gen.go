@@ -169,6 +169,7 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 							Computed:            true,
 							Description:         "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
 							MarkdownDescription: "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
+							DeprecationMessage:  "This attribute is deprecated.",
 						},
 						"srv_id": schema.StringAttribute{
 							Computed:            true,

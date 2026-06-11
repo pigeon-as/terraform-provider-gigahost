@@ -582,6 +582,7 @@
 										"name": "srv_hostname",
 										"string": {
 											"computed_optional_required": "computed",
+											"deprecation_message": "This attribute is deprecated.",
 											"description": "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name)."
 										}
 									},

@@ -1,5 +1,9 @@
 ## 0.3.2 (June 11, 2026)
 
+DEPRECATIONS:
+
+* `gigahost_server` and `gigahost_servers` data sources - `srv_hostname` is deprecated: the API does not populate it (the requested deploy hostname is recorded in `srv_name`).
+
 BUG FIXES:
 
 * `gigahost_server` - a transient gap in the server list no longer removes a live server from state: absence is confirmed across repeated reads before the resource is treated as deleted.
