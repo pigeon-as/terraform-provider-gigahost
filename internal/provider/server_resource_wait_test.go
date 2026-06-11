@@ -175,8 +175,8 @@ func TestFindServerByIDAbsentAfterConfirmation(t *testing.T) {
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	if listCalls != 3 {
-		t.Fatalf("list calls = %d, want 3 confirming reads", listCalls)
+	if listCalls != 5 {
+		t.Fatalf("list calls = %d, want 5 confirming reads", listCalls)
 	}
 }
 

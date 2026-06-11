@@ -34,7 +34,7 @@ const serverDeployTimeout = 30 * time.Minute
 // Variables so tests can poll fast.
 var (
 	serverDeployPollInterval = 5 * time.Second
-	serverListConfirmDelay   = 3 * time.Second
+	serverListConfirmDelay   = 15 * time.Second
 )
 
 var (
@@ -739,9 +739,10 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*dep
 }
 
 // findServerByID looks the server up in the server list, re-reading the list
-// before concluding absence: the API can transiently omit a live server.
+// before concluding absence: the API can transiently omit a live server for
+// tens of seconds (observed live), so absence is only trusted after a minute.
 func (r *serverResource) findServerByID(ctx context.Context, id string) (*client.Server, error) {
-	const confirmReads = 3
+	const confirmReads = 5
 	for attempt := 1; ; attempt++ {
 		servers, err := r.client.ListServers(ctx)
 		if err != nil {
