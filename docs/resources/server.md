@@ -77,7 +77,7 @@ resource "gigahost_server" "example" {
 - `os_distro` (String) OS distribution to install, e.g. "Ubuntu". Provide os_distro + os_version, or rescue.
 - `os_version` (String) OS version to install, e.g. "24.04" (matches the OS name or release codename).
 - `rescue` (Boolean) Boot the server into rescue mode instead of installing an OS.
-- `ssh_keys` (Set of String) Ids of SSH keys to authorize on the server.
+- `ssh_keys` (Set of String) Ids of SSH keys to authorize on the server. Changing this replaces the server. The API does not return deployed keys, so this is unset after `terraform import`; on imported servers, omit `ssh_keys` or use `lifecycle { ignore_changes = [ssh_keys] }` to avoid replacement.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
@@ -87,7 +87,7 @@ resource "gigahost_server" "example" {
 - `installing` (Boolean) Whether the server is installing.
 - `ips` (Attributes List) IP addresses assigned to the server. (see [below for nested schema](#nestedatt--ips))
 - `ipv4` (String) Primary IPv4 address.
-- `ipv6` (String) Primary IPv6 address.
+- `ipv6` (String) Primary IPv6 address (the API may report it only at deploy time, so it is unset after import).
 - `location` (String) Datacenter location code.
 - `monthly_cap` (Number) Monthly price cap (the most charged per month).
 - `order_id` (Number) Id of the deployment order.
@@ -136,3 +136,18 @@ Read-Only:
 - `os_id` (Number) OS image (version) id.
 - `os_name` (String) OS image name.
 - `os_release` (String) OS release/version.
+
+## Import
+
+Import is supported using the following syntax:
+
+```shell
+# Servers can be imported by their server id (srv_id).
+terraform import gigahost_server.example 12345
+```
+
+Deploy-time attributes the API does not return (`ssh_keys`, `root_password`, `ipv6`
+when the server list does not expose it, and the order/pricing details) are unset
+after import. Because `ssh_keys` requires replacement
+when it changes, declaring it for an imported server plans a destroy/recreate — omit
+it, or add `lifecycle { ignore_changes = [ssh_keys] }`.
