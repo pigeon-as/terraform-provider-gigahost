@@ -167,8 +167,8 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 						},
 						"srv_hostname": schema.StringAttribute{
 							Computed:            true,
-							Description:         "Server hostname.",
-							MarkdownDescription: "Server hostname.",
+							Description:         "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
+							MarkdownDescription: "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
 						},
 						"srv_id": schema.StringAttribute{
 							Computed:            true,
@@ -182,8 +182,8 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 						},
 						"srv_name": schema.StringAttribute{
 							Computed:            true,
-							Description:         "Server name (FQDN).",
-							MarkdownDescription: "Server name (FQDN).",
+							Description:         "Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.",
+							MarkdownDescription: "Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.",
 						},
 						"srv_primary_ip": schema.StringAttribute{
 							Computed:            true,

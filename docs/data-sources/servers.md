@@ -35,10 +35,10 @@ Read-Only:
 - `os_id` (String) Installed OS image (version) id.
 - `product_id` (String) Product id.
 - `srv_cores` (Number) Number of CPU cores.
-- `srv_hostname` (String) Server hostname.
+- `srv_hostname` (String) Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).
 - `srv_id` (String) Server id.
 - `srv_location` (String) Datacenter location code.
-- `srv_name` (String) Server name (FQDN).
+- `srv_name` (String) Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.
 - `srv_primary_ip` (String) Primary IPv4 address.
 - `srv_ram` (Number) Memory, in GB.
 - `srv_status` (Boolean) Whether the server is running.

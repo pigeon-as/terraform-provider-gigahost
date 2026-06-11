@@ -24,7 +24,7 @@ data "gigahost_server" "example" {
 ### Optional
 
 - `srv_id` (String) Look up the server by id.
-- `srv_name` (String) Look up the server by name.
+- `srv_name` (String) Look up the server by name (the requested deploy hostname, or an auto-generated srvNNNNN name, unless renamed).
 
 ### Read-Only
 
@@ -35,7 +35,7 @@ data "gigahost_server" "example" {
 - `os_id` (String) Installed OS image (version) id.
 - `product_id` (String) Product id.
 - `srv_cores` (Number) Number of CPU cores.
-- `srv_hostname` (String) Server hostname.
+- `srv_hostname` (String) Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in `srv_name`).
 - `srv_location` (String) Datacenter location code.
 - `srv_primary_ip` (String) Primary IPv4 address.
 - `srv_ram` (Number) Memory, in GB.

@@ -695,7 +695,7 @@ components:
           description: Set to 1 to deploy into rescue mode.
         hostnames:
           type: array
-          description: Hostnames for the deployed servers.
+          description: Hostnames for the deployed servers. Recorded as each server's name (srv_name).
           items:
             type: string
         ssh_keys:
@@ -754,7 +754,7 @@ components:
           description: Human-facing order number.
         hostname:
           type: string
-          description: Server hostname.
+          description: Requested hostname (recorded as the server name).
         srv_id:
           type: integer
           description: Server id, once provisioned.
@@ -844,10 +844,10 @@ components:
           description: Server id.
         srv_name:
           type: string
-          description: Server name (FQDN).
+          description: Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.
         srv_hostname:
           type: string
-          description: Server hostname.
+          description: Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).
         srv_status:
           type: boolean
           description: Whether the server is running.

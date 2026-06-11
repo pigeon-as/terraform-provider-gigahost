@@ -582,7 +582,7 @@
 										"name": "srv_hostname",
 										"string": {
 											"computed_optional_required": "computed",
-											"description": "Server hostname."
+											"description": "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name)."
 										}
 									},
 									{
@@ -603,7 +603,7 @@
 										"name": "srv_name",
 										"string": {
 											"computed_optional_required": "computed",
-											"description": "Server name (FQDN)."
+											"description": "Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name."
 										}
 									},
 									{

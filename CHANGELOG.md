@@ -1,3 +1,13 @@
+## 0.3.2 (June 11, 2026)
+
+BUG FIXES:
+
+* `gigahost_server` - a transient gap in the server list no longer removes a live server from state: absence is confirmed across repeated reads before the resource is treated as deleted.
+
+ENHANCEMENTS:
+
+* `gigahost_server` - document that a requested `hostname` is recorded as the server name (`srv_name`, replaced by `name` when both are set) and is not separately readable; the server data sources' `srv_name`/`srv_hostname` descriptions now reflect this.
+
 ## 0.3.1 (June 11, 2026)
 
 BUG FIXES:

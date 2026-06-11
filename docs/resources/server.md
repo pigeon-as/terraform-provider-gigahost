@@ -10,6 +10,12 @@ description: |-
 
 Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual machine or a dedicated (bare metal) server, depending on the chosen product.
 
+The create wait covers the whole deployment, including the OS install. Bare-metal
+installs can take well over 20 minutes, so consider raising the default 30-minute
+create timeout (`timeouts = { create = "60m" }`) for dedicated servers. A `ready`
+server may still be finishing its first boot — retry SSH connections rather than
+expecting instant access.
+
 ## Example Usage
 
 ### Virtual machine (KVM)
@@ -72,8 +78,8 @@ resource "gigahost_server" "example" {
 ### Optional
 
 - `backups` (Boolean) Whether to enable daily backups (adds 25% to the price).
-- `hostname` (String) Requested hostname.
-- `name` (String) Descriptive name for the server.
+- `hostname` (String) Requested hostname. The API records it as the server name (`srv_name`) with no separate hostname field to read back, so it is unset after import; when `name` is also set, `name` replaces it after deploy.
+- `name` (String) Descriptive name for the server. When unset, the server keeps its deploy name (the requested `hostname`, or an auto-generated srvNNNNN name).
 - `os_distro` (String) OS distribution to install, e.g. "Ubuntu". Provide os_distro + os_version, or rescue.
 - `os_version` (String) OS version to install, e.g. "24.04" (matches the OS name or release codename).
 - `rescue` (Boolean) Boot the server into rescue mode instead of installing an OS.
@@ -146,8 +152,8 @@ Import is supported using the following syntax:
 terraform import gigahost_server.example 12345
 ```
 
-Deploy-time attributes the API does not return (`ssh_keys`, `root_password`, `ipv6`
-when the server list does not expose it, and the order/pricing details) are unset
-after import. Because `ssh_keys` requires replacement
+Deploy-time attributes the API does not return (`ssh_keys`, `root_password`,
+`hostname`, `ipv6` when the server list does not expose it, and the order/pricing
+details) are unset after import. Because `ssh_keys` requires replacement
 when it changes, declaring it for an imported server plans a destroy/recreate — omit
 it, or add `lifecycle { ignore_changes = [ssh_keys] }`.

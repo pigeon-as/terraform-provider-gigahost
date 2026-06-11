@@ -15,9 +15,10 @@ import (
 func newWaitTestResource(t *testing.T, handler http.HandlerFunc) *serverResource {
 	t.Helper()
 
-	old := serverDeployPollInterval
+	oldPoll, oldConfirm := serverDeployPollInterval, serverListConfirmDelay
 	serverDeployPollInterval = time.Millisecond
-	t.Cleanup(func() { serverDeployPollInterval = old })
+	serverListConfirmDelay = time.Millisecond
+	t.Cleanup(func() { serverDeployPollInterval, serverListConfirmDelay = oldPoll, oldConfirm })
 
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
@@ -124,6 +125,58 @@ func TestWaitForServerListFallbackInstallingKeepsWaiting(t *testing.T) {
 	}
 	if server == nil || server.SrvID != "12345" {
 		t.Fatalf("server = %+v, want the installing server's id preserved for the error path", server)
+	}
+}
+
+func TestFindServerByIDConfirmsAbsence(t *testing.T) {
+	var mu sync.Mutex
+	listCalls := 0
+	r := newWaitTestResource(t, func(w http.ResponseWriter, req *http.Request) {
+		if !strings.HasPrefix(req.URL.Path, "/servers") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		mu.Lock()
+		listCalls++
+		n := listCalls
+		mu.Unlock()
+		if n < 3 {
+			_, _ = w.Write([]byte(`{"meta":{},"data":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"meta":{},"data":[{"srv_id":"12345","order":{"order_id":"777","order_status":"active"}}]}`))
+	})
+
+	found, err := r.findServerByID(context.Background(), "12345")
+	if err != nil {
+		t.Fatalf("findServerByID: %v", err)
+	}
+	if found == nil || found.SrvID != "12345" {
+		t.Fatalf("found = %+v, want the server after a transient list gap", found)
+	}
+}
+
+func TestFindServerByIDAbsentAfterConfirmation(t *testing.T) {
+	var mu sync.Mutex
+	listCalls := 0
+	r := newWaitTestResource(t, func(w http.ResponseWriter, req *http.Request) {
+		mu.Lock()
+		listCalls++
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"meta":{},"data":[]}`))
+	})
+
+	found, err := r.findServerByID(context.Background(), "12345")
+	if err != nil {
+		t.Fatalf("findServerByID: %v", err)
+	}
+	if found != nil {
+		t.Fatalf("found = %+v, want nil for a confirmed absence", found)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if listCalls != 3 {
+		t.Fatalf("list calls = %d, want 3 confirming reads", listCalls)
 	}
 }
 

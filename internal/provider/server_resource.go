@@ -31,8 +31,11 @@ import (
 
 const serverDeployTimeout = 30 * time.Minute
 
-// Variable so tests can poll fast.
-var serverDeployPollInterval = 5 * time.Second
+// Variables so tests can poll fast.
+var (
+	serverDeployPollInterval = 5 * time.Second
+	serverListConfirmDelay   = 3 * time.Second
+)
 
 var (
 	_ resource.Resource                     = &serverResource{}
@@ -128,8 +131,8 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Optional:            true,
-				Description:         "Descriptive name for the server.",
-				MarkdownDescription: "Descriptive name for the server.",
+				Description:         "Descriptive name for the server. When unset, the server keeps its deploy name (the requested hostname, or an auto-generated srvNNNNN name).",
+				MarkdownDescription: "Descriptive name for the server. When unset, the server keeps its deploy name (the requested `hostname`, or an auto-generated srvNNNNN name).",
 			},
 			"product_name": schema.StringAttribute{
 				Required:            true,
@@ -161,8 +164,8 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			},
 			"hostname": schema.StringAttribute{
 				Optional:            true,
-				Description:         "Requested hostname.",
-				MarkdownDescription: "Requested hostname.",
+				Description:         "Requested hostname. The API records it as the server name (srv_name) with no separate hostname field to read back, so it is unset after import; when name is also set, name replaces it after deploy.",
+				MarkdownDescription: "Requested hostname. The API records it as the server name (`srv_name`) with no separate hostname field to read back, so it is unset after import; when `name` is also set, `name` replaces it after deploy.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"ssh_keys": schema.SetAttribute{
@@ -735,6 +738,31 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*dep
 	}
 }
 
+// findServerByID looks the server up in the server list, re-reading the list
+// before concluding absence: the API can transiently omit a live server.
+func (r *serverResource) findServerByID(ctx context.Context, id string) (*client.Server, error) {
+	const confirmReads = 3
+	for attempt := 1; ; attempt++ {
+		servers, err := r.client.ListServers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for i := range servers {
+			if equalID(servers[i].SrvID, id) {
+				return &servers[i], nil
+			}
+		}
+		if attempt >= confirmReads {
+			return nil, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(serverListConfirmDelay):
+		}
+	}
+}
+
 func (r *serverResource) findServerByOrder(ctx context.Context, orderID int64) *client.Server {
 	servers, err := r.client.ListServers(ctx)
 	if err != nil {
@@ -844,14 +872,13 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	servers, err := r.client.ListServers(ctx)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to Read Gigahost Server", err.Error())
-		return
-	}
-
 	var found *client.Server
 	if state.ServerId.IsNull() {
+		servers, err := r.client.ListServers(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost Server", err.Error())
+			return
+		}
 		// A partially created server has no id in state yet; adopt it by its
 		// deployment order once it appears, and never treat it as deleted.
 		if !state.OrderId.IsNull() {
@@ -873,11 +900,11 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			return
 		}
 	} else {
-		for i := range servers {
-			if equalID(servers[i].SrvID, state.ServerId.ValueString()) {
-				found = &servers[i]
-				break
-			}
+		var err error
+		found, err = r.findServerByID(ctx, state.ServerId.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost Server", err.Error())
+			return
 		}
 	}
 	if found == nil || strings.EqualFold(found.Order.OrderStatus, "cancelled") {
