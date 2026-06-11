@@ -167,8 +167,8 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 						},
 						"srv_hostname": schema.StringAttribute{
 							Computed:            true,
-							Description:         "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
-							MarkdownDescription: "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
+							Description:         "Server hostname; not populated by the API.",
+							MarkdownDescription: "Server hostname; not populated by the API.",
 							DeprecationMessage:  "This attribute is deprecated.",
 						},
 						"srv_id": schema.StringAttribute{
@@ -183,8 +183,8 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 						},
 						"srv_name": schema.StringAttribute{
 							Computed:            true,
-							Description:         "Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.",
-							MarkdownDescription: "Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.",
+							Description:         "Server name. Initially the requested deploy hostname, or auto-generated.",
+							MarkdownDescription: "Server name. Initially the requested deploy hostname, or auto-generated.",
 						},
 						"srv_primary_ip": schema.StringAttribute{
 							Computed:            true,

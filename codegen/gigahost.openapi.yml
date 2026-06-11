@@ -844,11 +844,11 @@ components:
           description: Server id.
         srv_name:
           type: string
-          description: Server name. Defaults to the requested deploy hostname, or an auto-generated srvNNNNN name.
+          description: Server name. Initially the requested deploy hostname, or auto-generated.
         srv_hostname:
           type: string
           deprecated: true
-          description: Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).
+          description: Server hostname; not populated by the API.
         srv_status:
           type: boolean
           description: Whether the server is running.

@@ -96,14 +96,14 @@ func (d *serverDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			"srv_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Look up the server by name (the requested deploy hostname, or an auto-generated srvNNNNN name, unless renamed).",
-				MarkdownDescription: "Look up the server by name (the requested deploy hostname, or an auto-generated srvNNNNN name, unless renamed).",
+				Description:         "Look up the server by name.",
+				MarkdownDescription: "Look up the server by name.",
 			},
 			"srv_hostname": schema.StringAttribute{
 				Computed:            true,
 				DeprecationMessage:  "Not populated by the API; use srv_name instead.",
-				Description:         "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in srv_name).",
-				MarkdownDescription: "Server hostname. Observed empty even for deploys with a requested hostname (which is recorded in `srv_name`).",
+				Description:         "Server hostname; not populated by the API.",
+				MarkdownDescription: "Server hostname; not populated by the API.",
 			},
 			"srv_status": schema.BoolAttribute{
 				Computed:            true,

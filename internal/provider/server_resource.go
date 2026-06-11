@@ -131,8 +131,8 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Optional:            true,
-				Description:         "Descriptive name for the server. When unset, the server keeps its deploy name (the requested hostname, or an auto-generated srvNNNNN name).",
-				MarkdownDescription: "Descriptive name for the server. When unset, the server keeps its deploy name (the requested `hostname`, or an auto-generated srvNNNNN name).",
+				Description:         "Descriptive name for the server. When unset, the server keeps its initial name.",
+				MarkdownDescription: "Descriptive name for the server. When unset, the server keeps its initial name.",
 			},
 			"product_name": schema.StringAttribute{
 				Required:            true,
@@ -164,8 +164,8 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			},
 			"hostname": schema.StringAttribute{
 				Optional:            true,
-				Description:         "Requested hostname. The API records it as the server name (srv_name) with no separate hostname field to read back, so it is unset after import; when name is also set, name replaces it after deploy.",
-				MarkdownDescription: "Requested hostname. The API records it as the server name (`srv_name`) with no separate hostname field to read back, so it is unset after import; when `name` is also set, `name` replaces it after deploy.",
+				Description:         "Requested hostname. Stored by the API as the server's initial name (srv_name); unset after import.",
+				MarkdownDescription: "Requested hostname. Stored by the API as the server's initial name (`srv_name`); unset after import.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"ssh_keys": schema.SetAttribute{
