@@ -29,10 +29,10 @@ import (
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
-const (
-	serverDeployTimeout      = 30 * time.Minute
-	serverDeployPollInterval = 5 * time.Second
-)
+const serverDeployTimeout = 30 * time.Minute
+
+// Variable so tests can poll fast.
+var serverDeployPollInterval = 5 * time.Second
 
 var (
 	_ resource.Resource                     = &serverResource{}
@@ -556,8 +556,8 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 
 	server, err := r.waitForServer(ctx, orderID)
 	if err != nil {
-		if server != nil && int64(server.SrvID) != 0 {
-			state.ServerId = types.StringValue(strconv.FormatInt(int64(server.SrvID), 10))
+		if server != nil && server.SrvID != "" {
+			state.ServerId = types.StringValue(server.SrvID)
 		}
 		var hint string
 		if state.ServerId.IsNull() {
@@ -569,7 +569,7 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 		return
 	}
-	serverID := strconv.FormatInt(int64(server.SrvID), 10)
+	serverID := server.SrvID
 	state.ServerId = types.StringValue(serverID)
 	if server.Password != "" {
 		state.RootPassword = types.StringValue(server.Password)
@@ -614,16 +614,60 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
+// deployedServer carries what a deploy revealed about the server, sourced
+// from deploy status or, when that loses track of the order, the server list.
+type deployedServer struct {
+	SrvID    string
+	IP       string
+	IPv6     string
+	Password string
+}
+
+func deployedFromStatus(s *client.DeployStatusServer) *deployedServer {
+	out := &deployedServer{IP: s.IP, IPv6: s.IPv6, Password: s.Password}
+	if id := int64(s.SrvID); id != 0 {
+		out.SrvID = strconv.FormatInt(id, 10)
+	}
+	return out
+}
+
+func deployedFromList(s *client.Server) *deployedServer {
+	out := &deployedServer{SrvID: s.SrvID, IP: s.SrvPrimaryIP}
+	for _, ip := range s.IPs {
+		if strings.EqualFold(ip.IPv4v6, "ipv6") {
+			out.IPv6 = ip.IPAddress
+			break
+		}
+	}
+	return out
+}
+
 // waitForServer polls the deploy status until the order's server reaches a
-// final status. The last server seen for the order is returned even on
-// failure, so callers can persist its id.
-func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*client.DeployStatusServer, error) {
+// final status. The status response is a live view: it only lists orders
+// whose server exists or is provisioning, and it has no failure state, so
+// an order can drop out of it without any signal. When that happens the
+// server list is consulted after a short grace and at a slower cadence as
+// the durable completion source; a previously seen server that stays absent
+// from both views is treated as failed. The last server seen is returned
+// even on failure, so callers can persist its id.
+func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*deployedServer, error) {
 	ticker := time.NewTicker(serverDeployPollInterval)
 	defer ticker.Stop()
 
-	const maxPollErrors = 4
+	const (
+		maxPollErrors = 4
+		// The list is checked on every third consecutive status miss
+		// (~15s grace, then ~15s cadence), and a seen server must be
+		// absent from both views for 20 list checks (~5m) to be
+		// declared gone.
+		listEveryMisses = 3
+		maxGoneChecks   = 20
+	)
 	pollErrors := 0
-	var last *client.DeployStatusServer
+	statusMisses := 0
+	goneChecks := 0
+	seen := false
+	var last *deployedServer
 
 	for {
 		status, err := r.client.GetDeployStatus(ctx, []int64{orderID})
@@ -640,12 +684,15 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 					continue
 				}
 				found = true
-				last = &status.Servers[i]
+				statusMisses = 0
+				goneChecks = 0
+				last = deployedFromStatus(&status.Servers[i])
+				seen = seen || last.SrvID != ""
 				switch status.Servers[i].Status {
 				case "ready", "rescue", "iso":
-					return &status.Servers[i], nil
+					return last, nil
 				case "error", "failed", "cancelled", "suspended":
-					return &status.Servers[i], fmt.Errorf("server (order %d) failed to deploy: status %q", orderID, status.Servers[i].Status)
+					return last, fmt.Errorf("server (order %d) failed to deploy: status %q", orderID, status.Servers[i].Status)
 				default:
 					tflog.Debug(ctx, "waiting for Gigahost server to deploy", map[string]any{
 						"order_id": orderID,
@@ -654,11 +701,29 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 				}
 			}
 			if !found {
-				// Deploy status transiently omits in-flight orders, so a
-				// missing order is never treated as a failure on its own.
-				tflog.Debug(ctx, "order not reported by deploy status", map[string]any{
-					"order_id": orderID,
-				})
+				statusMisses++
+				if statusMisses%listEveryMisses == 0 {
+					if srv := r.findServerByOrder(ctx, orderID); srv != nil {
+						last = deployedFromList(srv)
+						seen = true
+						goneChecks = 0
+						if !bool(srv.SrvStatusInstall) && (bool(srv.SrvStatus) || bool(srv.SrvStatusRescue)) {
+							return last, nil
+						}
+						tflog.Debug(ctx, "order missing from deploy status; server still provisioning per server list", map[string]any{
+							"order_id": orderID,
+						})
+					} else if seen {
+						goneChecks++
+						if goneChecks >= maxGoneChecks {
+							return last, fmt.Errorf("server (order %d) disappeared while provisioning: it is no longer reported by the deploy status or the server list", orderID)
+						}
+					} else {
+						tflog.Debug(ctx, "order not reported by deploy status", map[string]any{
+							"order_id": orderID,
+						})
+					}
+				}
 			}
 		}
 
@@ -668,6 +733,20 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 		case <-ticker.C:
 		}
 	}
+}
+
+func (r *serverResource) findServerByOrder(ctx context.Context, orderID int64) *client.Server {
+	servers, err := r.client.ListServers(ctx)
+	if err != nil {
+		return nil
+	}
+	want := strconv.FormatInt(orderID, 10)
+	for i := range servers {
+		if equalID(servers[i].Order.OrderID, want) {
+			return &servers[i]
+		}
+	}
+	return nil
 }
 
 // orderRef names the deployment order for error messages, preferring the
