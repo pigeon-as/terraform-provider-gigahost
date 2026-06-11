@@ -7,6 +7,7 @@ DEPRECATIONS:
 BUG FIXES:
 
 * `gigahost_server` - a transient gap in the server list no longer removes a live server from state: absence is confirmed across repeated reads before the resource is treated as deleted.
+* `gigahost_server` - destroying a server that died during provisioning no longer fails forever: the API refuses cancellation of nonexistent servers with a 400, so a refused cancellation is followed by an absence check, and a confirmed-gone server is cleared from state with a warning naming the order.
 
 ENHANCEMENTS:
 

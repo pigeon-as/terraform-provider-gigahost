@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -566,7 +565,7 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		if state.ServerId.IsNull() {
 			hint = fmt.Sprintf("No server id was observed for %s, so terraform destroy cannot cancel it; check the Gigahost control panel and cancel it manually if needed.", orderRef(&state))
 		} else {
-			hint = fmt.Sprintf("The server was saved to Terraform state and marked tainted; terraform destroy will cancel %s. The API can refuse cancellation while the server is provisioning — retry the destroy if it does.", orderRef(&state))
+			hint = fmt.Sprintf("The server was saved to Terraform state and marked tainted; terraform destroy will cancel %s, or clear the resource if the server no longer exists.", orderRef(&state))
 		}
 		resp.Diagnostics.AddError("Unable to Deploy Gigahost Server", fmt.Sprintf("%s\n\n%s", err, hint))
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -992,12 +991,19 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
-		detail := err.Error()
-		var apiErr *client.Error
-		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusBadRequest {
-			detail = fmt.Sprintf("%s\n\nThe API can refuse cancellation while the server is provisioning. Retry the destroy once the server is running, or cancel %s in the Gigahost control panel.", err, orderRef(&state))
+		// Cancelling a nonexistent server returns 400 rather than 404, so a
+		// refusal is followed by an absence check before it counts as fatal.
+		if srv, findErr := r.findServerByID(ctx, state.ServerId.ValueString()); findErr == nil && srv == nil {
+			resp.Diagnostics.AddWarning(
+				"Gigahost Server Already Gone",
+				fmt.Sprintf("The server no longer exists, so the cancellation was refused (%s). Verify in the Gigahost control panel that %s is not active.", err, orderRef(&state)),
+			)
+			return
 		}
-		resp.Diagnostics.AddError("Unable to Cancel Gigahost Server", detail)
+		resp.Diagnostics.AddError(
+			"Unable to Cancel Gigahost Server",
+			fmt.Sprintf("%s\n\nRetry the destroy, or cancel %s in the Gigahost control panel.", err, orderRef(&state)),
+		)
 	}
 }
 
