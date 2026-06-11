@@ -59,7 +59,7 @@ jobs:
     needs: build
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 130
     strategy:
       fail-fast: false
       matrix:
@@ -80,5 +80,5 @@ jobs:
       - env:
           TF_ACC: "1"
           GIGAHOST_API_TOKEN: ${{ secrets.GIGAHOST_API_TOKEN }}
-        run: go test -v -cover -timeout 45m ./internal/provider/
-        timeout-minutes: 50
+        run: go test -v -cover -timeout 120m ./internal/provider/
+        timeout-minutes: 125
