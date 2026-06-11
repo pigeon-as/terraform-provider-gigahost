@@ -10,11 +10,6 @@ description: |-
 
 Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual machine or a dedicated (bare metal) server, depending on the chosen product.
 
-The create wait covers the whole deployment, including the OS install. Bare-metal
-installs can exceed the default 30-minute create timeout — raise it for dedicated
-servers (see the last example). A `ready` server may still be finishing its first
-boot, so retry SSH connections.
-
 ## Example Usage
 
 ### Virtual machine (KVM)
@@ -44,6 +39,11 @@ resource "gigahost_server" "example" {
 ```
 
 ### With SSH keys, backups and a create timeout
+
+The create wait covers the whole deployment, including the OS install — bare-metal
+installs can exceed the default 30-minute create timeout, so raise it for dedicated
+servers. A `ready` server may still be finishing its first boot, so retry SSH
+connections.
 
 ```terraform
 # A VM with an SSH key, daily backups, and a longer create timeout.
