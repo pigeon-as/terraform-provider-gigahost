@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -562,7 +563,7 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		if state.ServerId.IsNull() {
 			hint = fmt.Sprintf("No server id was observed for %s, so terraform destroy cannot cancel it; check the Gigahost control panel and cancel it manually if needed.", orderRef(&state))
 		} else {
-			hint = fmt.Sprintf("The server was saved to Terraform state and marked tainted; terraform destroy will cancel %s.", orderRef(&state))
+			hint = fmt.Sprintf("The server was saved to Terraform state and marked tainted; terraform destroy will cancel %s. The API can refuse cancellation while the server is provisioning — retry the destroy if it does.", orderRef(&state))
 		}
 		resp.Diagnostics.AddError("Unable to Deploy Gigahost Server", fmt.Sprintf("%s\n\n%s", err, hint))
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -884,7 +885,12 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
-		resp.Diagnostics.AddError("Unable to Cancel Gigahost Server", err.Error())
+		detail := err.Error()
+		var apiErr *client.Error
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusBadRequest {
+			detail = fmt.Sprintf("%s\n\nThe API can refuse cancellation while the server is provisioning. Retry the destroy once the server is running, or cancel %s in the Gigahost control panel.", err, orderRef(&state))
+		}
+		resp.Diagnostics.AddError("Unable to Cancel Gigahost Server", detail)
 	}
 }
 
