@@ -17,6 +17,7 @@ resource "gigahost_server" "test" {
   region       = "Sandefjord"
   rescue       = true
   name         = %q
+  timeouts     = { create = "15m" }
 }
 `, name)
 }
@@ -29,6 +30,7 @@ resource "gigahost_server" "test" {
   os_distro    = "Ubuntu"
   os_version   = "24.04"
   name         = %q
+  timeouts     = { create = "15m" }
 }
 `, name)
 }
@@ -120,6 +122,7 @@ resource "gigahost_server" "test" {
   region       = "Sandefjord"
   rescue       = true
   name         = %q
+  timeouts     = { create = "15m" }
 }
 `, name)
 }

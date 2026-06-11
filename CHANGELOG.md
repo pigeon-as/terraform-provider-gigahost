@@ -1,3 +1,16 @@
+## 0.3.1 (June 11, 2026)
+
+BUG FIXES:
+
+* `gigahost_server` - a deploy that fails or times out after the order is placed no longer orphans the billed server: the resource is saved to state as tainted, `terraform destroy` cancels it, and refresh adopts a server that only appears later by its deployment order.
+* `gigahost_server` - deploy waits now follow the deploy status view's real lifecycle (orders are only listed while their server exists, and there is no failure status): an order missing from the status is tolerated, the server list is polled as the durable completion source after a short grace, a finished install there completes the create, a server that disappears from both views fails fast instead of waiting out the timeout, and any observed server id is kept so a failed create can still be destroyed.
+* `gigahost_server` - `ipv6` no longer flips to null on refresh: the address reported at deploy time is kept when the server list does not expose it, the server list takes precedence when it does, and an absent address is stored as null instead of an empty string.
+* `gigahost_server` - a failure to read the server's details right after deploy now fails the create with the server kept in state as tainted, instead of being silently ignored.
+
+ENHANCEMENTS:
+
+* `gigahost_server` - document import, including the `ssh_keys` limitation (the API does not return deployed keys, so declaring them for an imported server forces replacement).
+
 ## 0.3.0 (June 10, 2026)
 
 BREAKING CHANGES:

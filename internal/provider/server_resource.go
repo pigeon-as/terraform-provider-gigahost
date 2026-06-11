@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -28,10 +29,10 @@ import (
 	"github.com/pigeon-as/terraform-provider-gigahost/internal/client"
 )
 
-const (
-	serverDeployTimeout      = 30 * time.Minute
-	serverDeployPollInterval = 5 * time.Second
-)
+const serverDeployTimeout = 30 * time.Minute
+
+// Variable so tests can poll fast.
+var serverDeployPollInterval = 5 * time.Second
 
 var (
 	_ resource.Resource                     = &serverResource{}
@@ -167,8 +168,8 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			"ssh_keys": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Optional:            true,
-				Description:         "Ids of SSH keys to authorize on the server.",
-				MarkdownDescription: "Ids of SSH keys to authorize on the server.",
+				Description:         "Ids of SSH keys to authorize on the server. Changing this replaces the server. The API does not return deployed keys, so this is unset after import; on imported servers, omit ssh_keys or use lifecycle ignore_changes to avoid replacement.",
+				MarkdownDescription: "Ids of SSH keys to authorize on the server. Changing this replaces the server. The API does not return deployed keys, so this is unset after `terraform import`; on imported servers, omit `ssh_keys` or use `lifecycle { ignore_changes = [ssh_keys] }` to avoid replacement.",
 				PlanModifiers:       []planmodifier.Set{setplanmodifier.RequiresReplace()},
 			},
 			"backups": schema.BoolAttribute{
@@ -221,8 +222,8 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			},
 			"ipv6": schema.StringAttribute{
 				Computed:            true,
-				Description:         "Primary IPv6 address.",
-				MarkdownDescription: "Primary IPv6 address.",
+				Description:         "Primary IPv6 address (the API may report it only at deploy time, so it is unset after import).",
+				MarkdownDescription: "Primary IPv6 address (the API may report it only at deploy time, so it is unset after import).",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"root_password": schema.StringAttribute{
@@ -534,24 +535,16 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 	orderID := result.OrderIDs[0]
 
-	server, err := r.waitForServer(ctx, orderID)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to Deploy Gigahost Server", err.Error())
-		return
-	}
-	serverID := strconv.FormatInt(int64(server.SrvID), 10)
-
+	// The order is placed (and billed) from here on, so every return must
+	// persist state: a failed wait leaves a tainted resource, not an orphan.
 	state := plan
 	state.ProductId = types.Int64Value(productID)
 	state.PriceId = types.Int64Value(priceID)
 	state.RegionId = types.Int64Value(regionID)
 	state.OsId = osID
-	state.ServerId = types.StringValue(serverID)
+	state.ServerId = types.StringNull()
 	state.OrderId = types.Int64Value(orderID)
 	state.RootPassword = types.StringNull()
-	if server.Password != "" {
-		state.RootPassword = types.StringValue(server.Password)
-	}
 	state.OrderNumber = types.Int64Null()
 	if len(result.OrderNumbers) > 0 {
 		state.OrderNumber = types.Int64Value(result.OrderNumbers[0])
@@ -559,9 +552,37 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	state.RateHourly = types.Float64Value(result.RateHourly)
 	state.MonthlyCap = types.Int64Value(result.MonthlyCap)
 	state.Currency = types.StringValue(result.Currency)
+	applyServerState(&state, nil)
+
+	server, err := r.waitForServer(ctx, orderID)
+	if err != nil {
+		if server != nil && server.SrvID != "" {
+			state.ServerId = types.StringValue(server.SrvID)
+		}
+		var hint string
+		if state.ServerId.IsNull() {
+			hint = fmt.Sprintf("No server id was observed for %s, so terraform destroy cannot cancel it; check the Gigahost control panel and cancel it manually if needed.", orderRef(&state))
+		} else {
+			hint = fmt.Sprintf("The server was saved to Terraform state and marked tainted; terraform destroy will cancel %s. The API can refuse cancellation while the server is provisioning — retry the destroy if it does.", orderRef(&state))
+		}
+		resp.Diagnostics.AddError("Unable to Deploy Gigahost Server", fmt.Sprintf("%s\n\n%s", err, hint))
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+		return
+	}
+	serverID := server.SrvID
+	state.ServerId = types.StringValue(serverID)
+	if server.Password != "" {
+		state.RootPassword = types.StringValue(server.Password)
+	}
 
 	var full *client.Server
-	if servers, err := r.client.ListServers(ctx); err == nil {
+	servers, err := r.client.ListServers(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to Read Gigahost Server Details",
+			fmt.Sprintf("The server deployed, but reading its details failed: %s\n\nThe server was saved to Terraform state and marked tainted; terraform untaint will keep it, and the next refresh fills in the missing details.", err),
+		)
+	} else {
 		for i := range servers {
 			if equalID(servers[i].SrvID, serverID) {
 				full = &servers[i]
@@ -570,8 +591,16 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		}
 	}
 	applyServerState(&state, full)
-	state.Ipv4 = types.StringValue(server.IP)
-	state.Ipv6 = types.StringValue(server.IPv6)
+	if (state.Ipv4.IsNull() || state.Ipv4.ValueString() == "") && server.IP != "" {
+		state.Ipv4 = types.StringValue(server.IP)
+	}
+	if state.Ipv6.IsNull() && server.IPv6 != "" {
+		state.Ipv6 = types.StringValue(server.IPv6)
+	}
+	if resp.Diagnostics.HasError() {
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+		return
+	}
 
 	if !plan.Name.IsNull() && plan.Name.ValueString() != "" {
 		if err := r.client.UpdateServerName(ctx, serverID, plan.Name.ValueString()); err != nil {
@@ -585,31 +614,85 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*client.DeployStatusServer, error) {
+// deployedServer carries what a deploy revealed about the server, sourced
+// from deploy status or, when that loses track of the order, the server list.
+type deployedServer struct {
+	SrvID    string
+	IP       string
+	IPv6     string
+	Password string
+}
+
+func deployedFromStatus(s *client.DeployStatusServer) *deployedServer {
+	out := &deployedServer{IP: s.IP, IPv6: s.IPv6, Password: s.Password}
+	if id := int64(s.SrvID); id != 0 {
+		out.SrvID = strconv.FormatInt(id, 10)
+	}
+	return out
+}
+
+func deployedFromList(s *client.Server) *deployedServer {
+	out := &deployedServer{SrvID: s.SrvID, IP: s.SrvPrimaryIP}
+	for _, ip := range s.IPs {
+		if strings.EqualFold(ip.IPv4v6, "ipv6") {
+			out.IPv6 = ip.IPAddress
+			break
+		}
+	}
+	return out
+}
+
+// waitForServer polls the deploy status until the order's server reaches a
+// final status. The status response is a live view: it only lists orders
+// whose server exists or is provisioning, and it has no failure state, so
+// an order can drop out of it without any signal. When that happens the
+// server list is consulted after a short grace and at a slower cadence as
+// the durable completion source; a previously seen server that stays absent
+// from both views is treated as failed. The last server seen is returned
+// even on failure, so callers can persist its id.
+func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*deployedServer, error) {
 	ticker := time.NewTicker(serverDeployPollInterval)
 	defer ticker.Stop()
 
-	const maxPollErrors = 4
+	const (
+		maxPollErrors = 4
+		// The list is checked on every third consecutive status miss
+		// (~15s grace, then ~15s cadence), and a seen server must be
+		// absent from both views for 20 list checks (~5m) to be
+		// declared gone.
+		listEveryMisses = 3
+		maxGoneChecks   = 20
+	)
 	pollErrors := 0
+	statusMisses := 0
+	goneChecks := 0
+	seen := false
+	var last *deployedServer
 
 	for {
 		status, err := r.client.GetDeployStatus(ctx, []int64{orderID})
 		if err != nil {
 			pollErrors++
 			if pollErrors > maxPollErrors {
-				return nil, fmt.Errorf("polling deploy status for order %d failed %d times in a row: %w", orderID, pollErrors, err)
+				return last, fmt.Errorf("polling deploy status for order %d failed %d times in a row: %w", orderID, pollErrors, err)
 			}
 		} else {
 			pollErrors = 0
+			found := false
 			for i := range status.Servers {
 				if int64(status.Servers[i].OrderID) != orderID {
 					continue
 				}
+				found = true
+				statusMisses = 0
+				goneChecks = 0
+				last = deployedFromStatus(&status.Servers[i])
+				seen = seen || last.SrvID != ""
 				switch status.Servers[i].Status {
 				case "ready", "rescue", "iso":
-					return &status.Servers[i], nil
+					return last, nil
 				case "error", "failed", "cancelled", "suspended":
-					return nil, fmt.Errorf("server (order %d) failed to deploy: status %q", orderID, status.Servers[i].Status)
+					return last, fmt.Errorf("server (order %d) failed to deploy: status %q", orderID, status.Servers[i].Status)
 				default:
 					tflog.Debug(ctx, "waiting for Gigahost server to deploy", map[string]any{
 						"order_id": orderID,
@@ -617,14 +700,65 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*cli
 					})
 				}
 			}
+			if !found {
+				statusMisses++
+				if statusMisses%listEveryMisses == 0 {
+					if srv := r.findServerByOrder(ctx, orderID); srv != nil {
+						last = deployedFromList(srv)
+						seen = true
+						goneChecks = 0
+						if !bool(srv.SrvStatusInstall) && (bool(srv.SrvStatus) || bool(srv.SrvStatusRescue)) {
+							return last, nil
+						}
+						tflog.Debug(ctx, "order missing from deploy status; server still provisioning per server list", map[string]any{
+							"order_id": orderID,
+						})
+					} else if seen {
+						goneChecks++
+						if goneChecks >= maxGoneChecks {
+							return last, fmt.Errorf("server (order %d) disappeared while provisioning: it is no longer reported by the deploy status or the server list", orderID)
+						}
+					} else {
+						tflog.Debug(ctx, "order not reported by deploy status", map[string]any{
+							"order_id": orderID,
+						})
+					}
+				}
+			}
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("timed out waiting for server (order %d) to be ready: %w", orderID, ctx.Err())
+			return last, fmt.Errorf("timed out waiting for server (order %d) to be ready: %w", orderID, ctx.Err())
 		case <-ticker.C:
 		}
 	}
+}
+
+func (r *serverResource) findServerByOrder(ctx context.Context, orderID int64) *client.Server {
+	servers, err := r.client.ListServers(ctx)
+	if err != nil {
+		return nil
+	}
+	want := strconv.FormatInt(orderID, 10)
+	for i := range servers {
+		if equalID(servers[i].Order.OrderID, want) {
+			return &servers[i]
+		}
+	}
+	return nil
+}
+
+// orderRef names the deployment order for error messages, preferring the
+// human-facing order number.
+func orderRef(state *serverResourceModel) string {
+	if !state.OrderNumber.IsNull() {
+		return fmt.Sprintf("order number %d", state.OrderNumber.ValueInt64())
+	}
+	if !state.OrderId.IsNull() {
+		return fmt.Sprintf("order id %d", state.OrderId.ValueInt64())
+	}
+	return "the order"
 }
 
 var serverOSAttrTypes = map[string]attr.Type{
@@ -645,6 +779,8 @@ var serverIPAttrTypes = map[string]attr.Type{
 
 func applyServerState(state *serverResourceModel, s *client.Server) {
 	if s == nil {
+		state.Ipv4 = types.StringNull()
+		state.Ipv6 = types.StringNull()
 		state.Cores = types.Int64Null()
 		state.Ram = types.Int64Null()
 		state.Location = types.StringNull()
@@ -659,12 +795,19 @@ func applyServerState(state *serverResourceModel, s *client.Server) {
 	}
 
 	state.Ipv4 = types.StringValue(s.SrvPrimaryIP)
-	state.Ipv6 = types.StringNull()
+	ipv6 := types.StringNull()
 	for _, ip := range s.IPs {
 		if strings.EqualFold(ip.IPv4v6, "ipv6") {
-			state.Ipv6 = types.StringValue(ip.IPAddress)
+			ipv6 = types.StringValue(ip.IPAddress)
 			break
 		}
+	}
+	// The server list does not always expose the IPv6 address that deploy
+	// status reported, so a known address is kept rather than nulled.
+	if !ipv6.IsNull() {
+		state.Ipv6 = ipv6
+	} else if state.Ipv6.IsUnknown() || state.Ipv6.ValueString() == "" {
+		state.Ipv6 = types.StringNull()
 	}
 	state.Cores = types.Int64Value(int64(s.SrvCores))
 	state.Ram = types.Int64Value(int64(s.SrvRAM))
@@ -708,10 +851,33 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	var found *client.Server
-	for i := range servers {
-		if equalID(servers[i].SrvID, state.ServerId.ValueString()) {
-			found = &servers[i]
-			break
+	if state.ServerId.IsNull() {
+		// A partially created server has no id in state yet; adopt it by its
+		// deployment order once it appears, and never treat it as deleted.
+		if !state.OrderId.IsNull() {
+			orderID := strconv.FormatInt(state.OrderId.ValueInt64(), 10)
+			for i := range servers {
+				if equalID(servers[i].Order.OrderID, orderID) {
+					found = &servers[i]
+					state.ServerId = types.StringValue(servers[i].SrvID)
+					break
+				}
+			}
+		}
+		if found == nil {
+			resp.Diagnostics.AddWarning(
+				"Gigahost Server Not Yet Identified",
+				fmt.Sprintf("The server has no id in state and no server for %s has appeared in the server list yet. The resource is kept in state; its id will be adopted once the server appears.", orderRef(&state)),
+			)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+			return
+		}
+	} else {
+		for i := range servers {
+			if equalID(servers[i].SrvID, state.ServerId.ValueString()) {
+				found = &servers[i]
+				break
+			}
 		}
 	}
 	if found == nil || strings.EqualFold(found.Order.OrderStatus, "cancelled") {
@@ -770,7 +936,14 @@ func (r *serverResource) Update(ctx context.Context, req resource.UpdateRequest,
 		}
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	// Apply the in-place changes onto prior state, so computed attributes
+	// keep their stored values and never inherit unknowns from the plan.
+	state.Name = plan.Name
+	state.OsDistro = plan.OsDistro
+	state.OsVersion = plan.OsVersion
+	state.OsId = plan.OsId
+	state.Timeouts = plan.Timeouts
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -780,8 +953,23 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
+	// A partially created server (the deploy wait failed before a server id
+	// was seen) cannot be cancelled through the API.
+	if state.ServerId.IsNull() || state.ServerId.ValueString() == "" {
+		resp.Diagnostics.AddError(
+			"Unable to Cancel Gigahost Server",
+			fmt.Sprintf("The server has no id in state. Cancel %s in the Gigahost control panel if it is still active, then remove the resource with terraform state rm.", orderRef(&state)),
+		)
+		return
+	}
+
 	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
-		resp.Diagnostics.AddError("Unable to Cancel Gigahost Server", err.Error())
+		detail := err.Error()
+		var apiErr *client.Error
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusBadRequest {
+			detail = fmt.Sprintf("%s\n\nThe API can refuse cancellation while the server is provisioning. Retry the destroy once the server is running, or cancel %s in the Gigahost control panel.", err, orderRef(&state))
+		}
+		resp.Diagnostics.AddError("Unable to Cancel Gigahost Server", detail)
 	}
 }
 

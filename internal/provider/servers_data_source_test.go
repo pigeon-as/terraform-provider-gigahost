@@ -15,6 +15,7 @@ resource "gigahost_server" "test" {
   os_distro    = "Ubuntu"
   os_version   = "24.04"
   name         = "tf-acc-servers-ds"
+  timeouts     = { create = "15m" }
 }
 
 data "gigahost_servers" "all" {
