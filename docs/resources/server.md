@@ -11,10 +11,9 @@ description: |-
 Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual machine or a dedicated (bare metal) server, depending on the chosen product.
 
 The create wait covers the whole deployment, including the OS install. Bare-metal
-installs can take well over 20 minutes, so consider raising the default 30-minute
-create timeout (`timeouts = { create = "60m" }`) for dedicated servers. A `ready`
-server may still be finishing its first boot — retry SSH connections rather than
-expecting instant access.
+installs can exceed the default 30-minute create timeout — raise it for dedicated
+servers (see the last example). A `ready` server may still be finishing its first
+boot, so retry SSH connections.
 
 ## Example Usage
 
@@ -44,7 +43,7 @@ resource "gigahost_server" "example" {
 }
 ```
 
-### With SSH keys and backups
+### With SSH keys, backups and a create timeout
 
 ```terraform
 # A VM with an SSH key, daily backups, and a longer create timeout.
@@ -61,9 +60,7 @@ resource "gigahost_server" "example" {
   backups      = true
   ssh_keys     = [gigahost_ssh_key.example.key_id]
 
-  timeouts {
-    create = "45m"
-  }
+  timeouts = { create = "60m" }
 }
 ```
 

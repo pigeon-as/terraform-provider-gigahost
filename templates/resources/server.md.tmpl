@@ -11,10 +11,9 @@ description: |-
 {{ .Description | trimspace }}
 
 The create wait covers the whole deployment, including the OS install. Bare-metal
-installs can take well over 20 minutes, so consider raising the default 30-minute
-create timeout (`timeouts = { create = "60m" }`) for dedicated servers. A `ready`
-server may still be finishing its first boot — retry SSH connections rather than
-expecting instant access.
+installs can exceed the default 30-minute create timeout — raise it for dedicated
+servers (see the last example). A `ready` server may still be finishing its first
+boot, so retry SSH connections.
 
 ## Example Usage
 
@@ -26,7 +25,7 @@ expecting instant access.
 
 {{ tffile "examples/resources/gigahost_server/bare-metal.tf" }}
 
-### With SSH keys and backups
+### With SSH keys, backups and a create timeout
 
 {{ tffile "examples/resources/gigahost_server/extended.tf" }}
 

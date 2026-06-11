@@ -12,7 +12,5 @@ resource "gigahost_server" "example" {
   backups      = true
   ssh_keys     = [gigahost_ssh_key.example.key_id]
 
-  timeouts {
-    create = "45m"
-  }
+  timeouts = { create = "60m" }
 }
