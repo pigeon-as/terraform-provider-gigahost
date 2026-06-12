@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -48,6 +49,18 @@ type serverDataSourceModel struct {
 	Ips              []serverIPModel        `tfsdk:"ips"`
 	Order            *serverOrderModel      `tfsdk:"order"`
 	Datacenter       *serverDatacenterModel `tfsdk:"datacenter"`
+	SrvDateCreated   types.String           `tfsdk:"srv_date_created"`
+	SrvBw            types.Int64            `tfsdk:"srv_bw"`
+	SrvBwType        types.String           `tfsdk:"srv_bw_type"`
+	Hdds             []serverHddModel       `tfsdk:"hdds"`
+}
+
+type serverHddModel struct {
+	HddId           types.Int64  `tfsdk:"hdd_id"`
+	HddType         types.String `tfsdk:"hdd_type"`
+	HddSize         types.Int64  `tfsdk:"hdd_size"`
+	HddManufacturer types.String `tfsdk:"hdd_manufacturer"`
+	HddModel        types.String `tfsdk:"hdd_model"`
 }
 
 type serverOSModel struct {
@@ -252,6 +265,35 @@ func (d *serverDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 					},
 				},
 			},
+			"srv_date_created": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Creation time (Unix epoch, as a string).",
+				MarkdownDescription: "Creation time (Unix epoch, as a string).",
+			},
+			"srv_bw": schema.Int64Attribute{
+				Computed:            true,
+				Description:         "Bandwidth allowance.",
+				MarkdownDescription: "Bandwidth allowance.",
+			},
+			"srv_bw_type": schema.StringAttribute{
+				Computed:            true,
+				Description:         "Bandwidth accounting type (e.g. quota).",
+				MarkdownDescription: "Bandwidth accounting type (e.g. quota).",
+			},
+			"hdds": schema.ListNestedAttribute{
+				Computed:            true,
+				Description:         "Disks attached to the server.",
+				MarkdownDescription: "Disks attached to the server.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"hdd_id":           schema.Int64Attribute{Computed: true, Description: "Disk id.", MarkdownDescription: "Disk id."},
+						"hdd_type":         schema.StringAttribute{Computed: true, Description: "Disk type (e.g. SSD).", MarkdownDescription: "Disk type (e.g. SSD)."},
+						"hdd_size":         schema.Int64Attribute{Computed: true, Description: "Disk size, in GB.", MarkdownDescription: "Disk size, in GB."},
+						"hdd_manufacturer": schema.StringAttribute{Computed: true, Description: "Disk manufacturer.", MarkdownDescription: "Disk manufacturer."},
+						"hdd_model":        schema.StringAttribute{Computed: true, Description: "Disk model.", MarkdownDescription: "Disk model."},
+					},
+				},
+			},
 		},
 	}
 }
@@ -286,40 +328,49 @@ func (d *serverDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
-	servers, err := d.client.ListServers(ctx)
+	id := config.SrvId.ValueString()
+	if config.SrvId.IsNull() {
+		servers, err := d.client.ListServers(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost Servers", err.Error())
+			return
+		}
+
+		var matches []client.Server
+		for _, s := range servers {
+			if strings.EqualFold(s.SrvName, config.SrvName.ValueString()) {
+				matches = append(matches, s)
+			}
+		}
+		if len(matches) == 0 {
+			resp.Diagnostics.AddError("Server Not Found", "No server matches the given srv_name on the account.")
+			return
+		}
+		if len(matches) > 1 {
+			ids := make([]string, len(matches))
+			for i, m := range matches {
+				ids[i] = m.SrvID
+			}
+			resp.Diagnostics.AddError(
+				"Ambiguous Server",
+				fmt.Sprintf("%d servers match (ids %s); use srv_id to select one.", len(matches), strings.Join(ids, ", ")),
+			)
+			return
+		}
+		id = matches[0].SrvID
+	}
+
+	detail, err := d.client.GetServer(ctx, id)
+	if errors.Is(err, client.ErrNotFound) {
+		resp.Diagnostics.AddError("Server Not Found", fmt.Sprintf("No server with srv_id %s on the account.", id))
+		return
+	}
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to Read Gigahost Servers", err.Error())
+		resp.Diagnostics.AddError("Unable to Read Gigahost Server", err.Error())
 		return
 	}
 
-	var matches []client.Server
-	for _, s := range servers {
-		if !config.SrvId.IsNull() && !equalID(s.SrvID, config.SrvId.ValueString()) {
-			continue
-		}
-		if !config.SrvName.IsNull() && !strings.EqualFold(s.SrvName, config.SrvName.ValueString()) {
-			continue
-		}
-		matches = append(matches, s)
-	}
-
-	if len(matches) == 0 {
-		resp.Diagnostics.AddError("Server Not Found", "No server matches the given srv_id or srv_name on the account.")
-		return
-	}
-	if len(matches) > 1 {
-		ids := make([]string, len(matches))
-		for i, m := range matches {
-			ids[i] = m.SrvID
-		}
-		resp.Diagnostics.AddError(
-			"Ambiguous Server",
-			fmt.Sprintf("%d servers match (ids %s); use srv_id to select one.", len(matches), strings.Join(ids, ", ")),
-		)
-		return
-	}
-
-	s := matches[0]
+	s := detail.Server
 	ips := make([]serverIPModel, 0, len(s.IPs))
 	for _, ip := range s.IPs {
 		ips = append(ips, serverIPModel{
@@ -330,6 +381,17 @@ func (d *serverDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 			IpType:    types.StringValue(ip.IPType),
 			IpNetmask: types.StringValue(ip.IPNetmask),
 			IpGateway: types.StringValue(ip.IPGateway),
+		})
+	}
+
+	hdds := make([]serverHddModel, 0, len(detail.Hdds))
+	for _, hdd := range detail.Hdds {
+		hdds = append(hdds, serverHddModel{
+			HddId:           types.Int64Value(int64(hdd.HddID)),
+			HddType:         types.StringValue(hdd.HddType),
+			HddSize:         types.Int64Value(int64(hdd.HddSize)),
+			HddManufacturer: types.StringValue(hdd.HddManufacturer),
+			HddModel:        types.StringValue(hdd.HddModel),
 		})
 	}
 
@@ -366,6 +428,10 @@ func (d *serverDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 			RegionId:   types.StringValue(s.Datacenter.RegionID),
 			RegionName: types.StringValue(s.Datacenter.RegionName),
 		},
+		SrvDateCreated: types.StringValue(detail.SrvDateCreated),
+		SrvBw:          types.Int64Value(int64(detail.SrvBw)),
+		SrvBwType:      types.StringValue(detail.SrvBwType),
+		Hdds:           hdds,
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

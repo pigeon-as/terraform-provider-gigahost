@@ -30,11 +30,7 @@ import (
 
 const serverDeployTimeout = 30 * time.Minute
 
-// Variables so tests can poll fast.
-var (
-	serverDeployPollInterval = 5 * time.Second
-	serverListConfirmDelay   = 15 * time.Second
-)
+var serverDeployPollInterval = 5 * time.Second
 
 var (
 	_ resource.Resource                     = &serverResource{}
@@ -645,25 +641,16 @@ func deployedFromList(s *client.Server) *deployedServer {
 }
 
 // waitForServer polls the deploy status until the order's server reaches a
-// final status. The status response is a live view: it only lists orders
-// whose server exists or is provisioning, and it has no failure state, so
-// an order can drop out of it without any signal. When that happens the
-// server list is consulted after a short grace and at a slower cadence as
-// the durable completion source; a previously seen server that stays absent
-// from both views is treated as failed. The last server seen is returned
-// even on failure, so callers can persist its id.
+// final status; the last server seen is returned even on failure, so
+// callers can persist its id.
 func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*deployedServer, error) {
 	ticker := time.NewTicker(serverDeployPollInterval)
 	defer ticker.Stop()
 
 	const (
-		maxPollErrors = 4
-		// The list is checked on every third consecutive status miss
-		// (~15s grace, then ~15s cadence), and a seen server must be
-		// absent from both views for 20 list checks (~5m) to be
-		// declared gone.
+		maxPollErrors   = 4
 		listEveryMisses = 3
-		maxGoneChecks   = 20
+		maxGoneChecks   = 4
 	)
 	pollErrors := 0
 	statusMisses := 0
@@ -705,22 +692,28 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*dep
 			if !found {
 				statusMisses++
 				if statusMisses%listEveryMisses == 0 {
-					if srv := r.findServerByOrder(ctx, orderID); srv != nil {
+					srvID := ""
+					if last != nil {
+						srvID = last.SrvID
+					}
+					srv, gone := r.checkDeployed(ctx, orderID, srvID)
+					switch {
+					case srv != nil:
 						last = deployedFromList(srv)
 						seen = true
 						goneChecks = 0
-						if !bool(srv.SrvStatusInstall) && (bool(srv.SrvStatus) || bool(srv.SrvStatusRescue)) {
+						if serverSettled(srv) {
 							return last, nil
 						}
-						tflog.Debug(ctx, "order missing from deploy status; server still provisioning per server list", map[string]any{
+						tflog.Debug(ctx, "order missing from deploy status; server still provisioning", map[string]any{
 							"order_id": orderID,
 						})
-					} else if seen {
+					case gone && seen:
 						goneChecks++
 						if goneChecks >= maxGoneChecks {
-							return last, fmt.Errorf("server (order %d) disappeared while provisioning: it is no longer reported by the deploy status or the server list", orderID)
+							return last, fmt.Errorf("server %s (order %d) disappeared while provisioning: the deploy status and server APIs no longer report it", last.SrvID, orderID)
 						}
-					} else {
+					default:
 						tflog.Debug(ctx, "order not reported by deploy status", map[string]any{
 							"order_id": orderID,
 						})
@@ -737,44 +730,32 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*dep
 	}
 }
 
-// findServerByID looks the server up in the server list, re-reading the list
-// before concluding absence: the API can transiently omit a live server for
-// tens of seconds (observed live), so absence is only trusted after a minute.
-func (r *serverResource) findServerByID(ctx context.Context, id string) (*client.Server, error) {
-	const confirmReads = 5
-	for attempt := 1; ; attempt++ {
-		servers, err := r.client.ListServers(ctx)
-		if err != nil {
-			return nil, err
-		}
-		for i := range servers {
-			if equalID(servers[i].SrvID, id) {
-				return &servers[i], nil
-			}
-		}
-		if attempt >= confirmReads {
-			return nil, nil
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(serverListConfirmDelay):
-		}
-	}
+func serverSettled(s *client.Server) bool {
+	return !bool(s.SrvStatusInstall) && (bool(s.SrvStatus) || bool(s.SrvStatusRescue))
 }
 
-func (r *serverResource) findServerByOrder(ctx context.Context, orderID int64) *client.Server {
+func (r *serverResource) checkDeployed(ctx context.Context, orderID int64, srvID string) (*client.Server, bool) {
+	if srvID != "" {
+		detail, err := r.client.GetServer(ctx, srvID)
+		if err != nil {
+			return nil, errors.Is(err, client.ErrNotFound)
+		}
+		if strings.EqualFold(detail.Order.OrderStatus, "cancelled") {
+			return nil, true
+		}
+		return &detail.Server, false
+	}
 	servers, err := r.client.ListServers(ctx)
 	if err != nil {
-		return nil
+		return nil, false
 	}
 	want := strconv.FormatInt(orderID, 10)
 	for i := range servers {
 		if equalID(servers[i].Order.OrderID, want) {
-			return &servers[i]
+			return &servers[i], false
 		}
 	}
-	return nil
+	return nil, true
 }
 
 // orderRef names the deployment order for error messages, preferring the
@@ -900,9 +881,12 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			return
 		}
 	} else {
-		var err error
-		found, err = r.findServerByID(ctx, state.ServerId.ValueString())
-		if err != nil {
+		detail, err := r.client.GetServer(ctx, state.ServerId.ValueString())
+		switch {
+		case err == nil:
+			found = &detail.Server
+		case errors.Is(err, client.ErrNotFound):
+		default:
 			resp.Diagnostics.AddError("Unable to Read Gigahost Server", err.Error())
 			return
 		}
@@ -991,12 +975,13 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
-		// Cancelling a nonexistent server returns 400 rather than 404, so a
-		// refusal is followed by an absence check before it counts as fatal.
-		if srv, findErr := r.findServerByID(ctx, state.ServerId.ValueString()); findErr == nil && srv == nil {
+		// Cancel answers 400 rather than 404 for nonexistent or already-cancelled servers.
+		detail, getErr := r.client.GetServer(ctx, state.ServerId.ValueString())
+		if errors.Is(getErr, client.ErrNotFound) ||
+			(getErr == nil && strings.EqualFold(detail.Order.OrderStatus, "cancelled")) {
 			resp.Diagnostics.AddWarning(
 				"Gigahost Server Already Gone",
-				fmt.Sprintf("The server no longer exists, so the cancellation was refused (%s). Verify in the Gigahost control panel that %s is not active.", err, orderRef(&state)),
+				fmt.Sprintf("The server is already cancelled or gone, so the cancellation was refused (%s). Verify in the Gigahost control panel that %s is not active.", err, orderRef(&state)),
 			)
 			return
 		}

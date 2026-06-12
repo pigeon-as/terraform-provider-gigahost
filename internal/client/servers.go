@@ -2,7 +2,9 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"path"
 )
 
 type Server struct {
@@ -68,4 +70,36 @@ func (c *Client) ListServers(ctx context.Context) ([]Server, error) {
 		return nil, err
 	}
 	return servers, nil
+}
+
+type ServerHdd struct {
+	HddID           flexInt64 `json:"hdd_id"`
+	HddType         string    `json:"hdd_type"`
+	HddSize         flexInt64 `json:"hdd_size"`
+	HddManufacturer string    `json:"hdd_manufacturer"`
+	HddModel        string    `json:"hdd_model"`
+}
+
+type ServerDetail struct {
+	Server
+	SrvDateCreated string      `json:"srv_date_created"`
+	SrvBw          flexInt64   `json:"srv_bw"`
+	SrvBwType      string      `json:"srv_bw_type"`
+	Hdds           []ServerHdd `json:"hdds"`
+}
+
+func (c *Client) GetServer(ctx context.Context, id string) (*ServerDetail, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, path.Join("servers", id), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var servers []ServerDetail
+	if err := c.sendRequest(req, &servers); err != nil {
+		return nil, err
+	}
+	if len(servers) == 0 {
+		return nil, fmt.Errorf("gigahost: server %s: empty response", id)
+	}
+	return &servers[0], nil
 }

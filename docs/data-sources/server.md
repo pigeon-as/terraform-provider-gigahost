@@ -29,12 +29,16 @@ data "gigahost_server" "example" {
 ### Read-Only
 
 - `datacenter` (Attributes) Datacenter location. (see [below for nested schema](#nestedatt--datacenter))
+- `hdds` (Attributes List) Disks attached to the server. (see [below for nested schema](#nestedatt--hdds))
 - `ips` (Attributes List) IP addresses assigned to the server. (see [below for nested schema](#nestedatt--ips))
 - `order` (Attributes) Order details. (see [below for nested schema](#nestedatt--order))
 - `os` (Attributes) Installed operating system. (see [below for nested schema](#nestedatt--os))
 - `os_id` (String) Installed OS image (version) id.
 - `product_id` (String) Product id.
+- `srv_bw` (Number) Bandwidth allowance.
+- `srv_bw_type` (String) Bandwidth accounting type (e.g. quota).
 - `srv_cores` (Number) Number of CPU cores.
+- `srv_date_created` (String) Creation time (Unix epoch, as a string).
 - `srv_hostname` (String, Deprecated) Server hostname; not populated by the API.
 - `srv_location` (String) Datacenter location code.
 - `srv_primary_ip` (String) Primary IPv4 address.
@@ -53,6 +57,18 @@ Read-Only:
 
 - `region_id` (String) Region id.
 - `region_name` (String) Region name.
+
+
+<a id="nestedatt--hdds"></a>
+### Nested Schema for `hdds`
+
+Read-Only:
+
+- `hdd_id` (Number) Disk id.
+- `hdd_manufacturer` (String) Disk manufacturer.
+- `hdd_model` (String) Disk model.
+- `hdd_size` (Number) Disk size, in GB.
+- `hdd_type` (String) Disk type (e.g. SSD).
 
 
 <a id="nestedatt--ips"></a>

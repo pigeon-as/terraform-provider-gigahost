@@ -328,6 +328,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ServersData'
 
+  /servers/{id}:
+    get:
+      operationId: getServer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The server, as a single-element array. Servers that do not exist — including other accounts' servers — return 404.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServerDetail'
+
   /servers/{id}/name:
     put:
       operationId: updateServerName
@@ -963,6 +982,46 @@ components:
         region_name:
           type: string
           description: Region name.
+
+    ServerDetail:
+      description: Single-server payload — the Server fields plus details the list does not return. Sensitive, operational and live-usage fields (server key, VNC, IPMI, attack/activity logs, processes, bw_used*, hdd_space_used) are intentionally not modelled.
+      allOf:
+        - $ref: '#/components/schemas/Server'
+        - type: object
+          properties:
+            srv_date_created:
+              type: string
+              description: Creation time (Unix epoch, as a string).
+            srv_bw:
+              type: integer
+              description: Bandwidth allowance.
+            srv_bw_type:
+              type: string
+              description: Bandwidth accounting type (e.g. quota).
+            hdds:
+              type: array
+              description: Disks attached to the server.
+              items:
+                $ref: '#/components/schemas/ServerHdd'
+
+    ServerHdd:
+      type: object
+      properties:
+        hdd_id:
+          type: integer
+          description: Disk id.
+        hdd_type:
+          type: string
+          description: Disk type (e.g. SSD).
+        hdd_size:
+          type: integer
+          description: Disk size, in GB.
+        hdd_manufacturer:
+          type: string
+          description: Disk manufacturer.
+        hdd_model:
+          type: string
+          description: Disk model.
 
     ServerNameRequest:
       type: object

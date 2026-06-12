@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -10,29 +11,36 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+func testAccServerProduct() string {
+	if v := os.Getenv("GIGAHOST_TEST_PRODUCT"); v != "" {
+		return v
+	}
+	return "KVM Performance VPS 4GB"
+}
+
 func testAccServerResourceConfig(name string) string {
 	return fmt.Sprintf(`
 resource "gigahost_server" "test" {
-  product_name = "KVM Value VPS 4GB"
+  product_name = %q
   region       = "Sandefjord"
   rescue       = true
   name         = %q
   timeouts     = { create = "15m" }
 }
-`, name)
+`, testAccServerProduct(), name)
 }
 
 func testAccServerResourceOSConfig(name string) string {
 	return fmt.Sprintf(`
 resource "gigahost_server" "test" {
-  product_name = "KVM Value VPS 4GB"
+  product_name = %q
   region       = "Sandefjord"
   os_distro    = "Ubuntu"
   os_version   = "24.04"
   name         = %q
   timeouts     = { create = "15m" }
 }
-`, name)
+`, testAccServerProduct(), name)
 }
 
 func TestAccServerResource_basic(t *testing.T) {

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"regexp"
 	"testing"
 
@@ -8,9 +9,9 @@ import (
 )
 
 func testAccServersDataSourceConfig() string {
-	return `
+	return fmt.Sprintf(`
 resource "gigahost_server" "test" {
-  product_name = "KVM Value VPS 4GB"
+  product_name = %q
   region       = "Sandefjord"
   os_distro    = "Ubuntu"
   os_version   = "24.04"
@@ -31,7 +32,7 @@ data "gigahost_server" "by_name" {
   srv_name   = gigahost_server.test.name
   depends_on = [gigahost_server.test]
 }
-`
+`, testAccServerProduct())
 }
 
 func TestAccServersDataSource_basic(t *testing.T) {
@@ -53,8 +54,13 @@ func TestAccServersDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.gigahost_server.by_id", "os.os_id"),
 					resource.TestMatchResourceAttr("data.gigahost_server.by_id", "ips.#", regexp.MustCompile(`^[1-9]`)),
 					resource.TestCheckResourceAttrSet("data.gigahost_server.by_id", "ips.0.ip_address"),
+					resource.TestCheckResourceAttrSet("data.gigahost_server.by_id", "srv_date_created"),
+					resource.TestCheckResourceAttrSet("data.gigahost_server.by_id", "srv_bw"),
+					resource.TestMatchResourceAttr("data.gigahost_server.by_id", "hdds.#", regexp.MustCompile(`^[1-9]`)),
+					resource.TestCheckResourceAttrSet("data.gigahost_server.by_id", "hdds.0.hdd_size"),
 					resource.TestCheckResourceAttrPair("data.gigahost_server.by_name", "srv_id", "gigahost_server.test", "server_id"),
 					resource.TestCheckResourceAttr("data.gigahost_server.by_name", "srv_name", "tf-acc-servers-ds"),
+					resource.TestCheckResourceAttrSet("data.gigahost_server.by_name", "srv_date_created"),
 				),
 			},
 		},
