@@ -1,3 +1,15 @@
+## 0.4.0 (June 12, 2026)
+
+FEATURES:
+
+* `gigahost_server` data source - expose single-server details from `GET /servers/{id}`: `srv_date_created`, `srv_bw`, `srv_bw_type`, and `hdds`.
+
+ENHANCEMENTS:
+
+* `gigahost_server` data source - id lookups use the single-server endpoint directly, and name lookups fetch the full details after resolving the id.
+* `gigahost_server` - refresh reads the server directly by id: a 404 definitively means the server is gone, a key lacking the permission surfaces the API's 403 message, and a 401 (bad token) keeps the state untouched.
+* `gigahost_server` - deploy waits read the server directly once its id is known, a disappeared server fails the create after about a minute instead of five, and failure messages include the observed server id.
+
 ## 0.3.2 (June 11, 2026)
 
 DEPRECATIONS:
