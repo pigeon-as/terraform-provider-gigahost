@@ -752,10 +752,8 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			state.RegionId = types.Int64Value(id)
 		}
 	}
-	if state.OsId.IsNull() {
-		if id := int64(found.OS.OSID); id != 0 {
-			state.OsId = types.Int64Value(id)
-		}
+	if id := int64(found.OS.OSID); id != 0 {
+		state.OsId = types.Int64Value(id)
 	}
 	if state.Rescue.IsNull() && bool(found.SrvStatusRescue) {
 		state.Rescue = types.BoolValue(true)
