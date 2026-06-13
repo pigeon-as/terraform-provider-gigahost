@@ -18,10 +18,9 @@ Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual mac
 # A KVM virtual machine running Ubuntu.
 resource "gigahost_server" "example" {
   product_name = "KVM Value VPS 4GB"
-  region       = "Sandefjord"
-  os_distro    = "Ubuntu"
-  os_version   = "24.04"
-  name         = "web-01"
+  region_name  = "Sandefjord"
+  os_name      = "Ubuntu 24.04 LTS"
+  srv_name     = "web-01"
 }
 ```
 
@@ -31,10 +30,9 @@ resource "gigahost_server" "example" {
 # A dedicated (bare metal) server running Ubuntu.
 resource "gigahost_server" "example" {
   product_name = "Intro - Intel Core i3 4GB"
-  region       = "Sandefjord"
-  os_distro    = "Ubuntu"
-  os_version   = "24.04"
-  name         = "db-01"
+  region_name  = "Sandefjord"
+  os_name      = "Ubuntu 24.04 LTS"
+  srv_name     = "db-01"
 }
 ```
 
@@ -43,7 +41,9 @@ resource "gigahost_server" "example" {
 The create wait covers the whole deployment, including the OS install — bare-metal
 installs can exceed the default 30-minute create timeout, so raise it for dedicated
 servers. A `ready` server may still be finishing its first boot, so retry SSH
-connections.
+connections. `os_name`/`os_dist` are deploy-time inputs: an OS reinstalled outside
+Terraform shows up in the computed `os` attribute on refresh, but does not force a
+replacement.
 
 ```terraform
 # A dedicated (bare metal) server with an SSH key, daily backups, and a
@@ -55,9 +55,8 @@ resource "gigahost_ssh_key" "example" {
 
 resource "gigahost_server" "example" {
   product_name = "Intro - Intel Core i3 4GB"
-  region       = "Sandefjord"
-  os_distro    = "Ubuntu"
-  os_version   = "24.04"
+  region_name  = "Sandefjord"
+  os_name      = "Ubuntu 24.04 LTS"
   backups      = true
   ssh_keys     = [gigahost_ssh_key.example.key_id]
 
@@ -71,44 +70,43 @@ resource "gigahost_server" "example" {
 ### Required
 
 - `product_name` (String) Product name from the catalog, e.g. "KVM Value VPS 4GB".
-- `region` (String) Region name to deploy in, e.g. "Sandefjord".
+- `region_name` (String) Region name to deploy in, e.g. "Sandefjord".
 
 ### Optional
 
 - `backups` (Boolean) Whether to enable daily backups (adds 25% to the price).
 - `hostname` (String) Requested hostname. Stored by the API as the server's initial name (`srv_name`); unset after import.
-- `name` (String) Descriptive name for the server. When unset, the server keeps its initial name.
-- `os_distro` (String) OS distribution to install, e.g. "Ubuntu". Provide os_distro + os_version, or rescue.
-- `os_version` (String) OS version to install, e.g. "24.04" (matches the OS name or release codename).
+- `os_dist` (String) OS image to install, by release codename (`os_dist`), e.g. "noble". Provide `os_name` or `os_dist` (to install an OS), or `rescue`.
+- `os_name` (String) OS image to install, by catalog name (`os_name`), e.g. "Ubuntu 24.04 LTS". Provide `os_name` or `os_dist` (to install an OS), or `rescue`.
 - `rescue` (Boolean) Boot the server into rescue mode instead of installing an OS.
+- `srv_name` (String) Descriptive name for the server. When unset, the server keeps its initial name.
 - `ssh_keys` (Set of String) Ids of SSH keys to authorize on the server. Changing this replaces the server. The API does not return deployed keys, so this is unset after `terraform import`; on imported servers, omit `ssh_keys` or use `lifecycle { ignore_changes = [ssh_keys] }` to avoid replacement.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
-- `cores` (Number) Number of CPU cores.
 - `currency` (String) Currency of the pricing.
-- `installing` (Boolean) Whether the server is installing.
 - `ips` (Attributes List) IP addresses assigned to the server. (see [below for nested schema](#nestedatt--ips))
-- `ipv4` (String) Primary IPv4 address.
-- `ipv6` (String) Primary IPv6 address (the API may report it only at deploy time, so it is unset after import).
-- `location` (String) Datacenter location code.
 - `monthly_cap` (Number) Monthly price cap (the most charged per month).
 - `order_id` (Number) Id of the deployment order.
 - `order_number` (Number) Human-facing order number for the deployment.
 - `os` (Attributes) Installed operating system. (see [below for nested schema](#nestedatt--os))
-- `os_id` (Number) Resolved OS image id (from os_distro + os_version).
+- `os_id` (Number) Resolved OS image id (from os_name or os_dist).
+- `password` (String, Sensitive) Initial root password (only set when the server is deployed without an SSH key). Stored in Terraform state in plaintext.
 - `price_id` (Number) Resolved price id (from product_name).
 - `product_id` (Number) Resolved product id (from product_name).
-- `ram` (Number) Memory, in GB.
 - `rate_hourly` (Number) Hourly rate for the server.
 - `region_id` (Number) Resolved region id (from region).
-- `root_password` (String, Sensitive) Initial root password (only set when the server is deployed without an SSH key). Stored in Terraform state in plaintext.
-- `running` (Boolean) Whether the server is running.
-- `server_id` (String) Server id (srv_id).
-- `suspended` (Boolean) Whether the server is suspended.
-- `type` (String) Server type (vps or dedicated).
-- `vps_type` (String) Virtualization type (e.g. kvm).
+- `srv_cores` (Number) Number of CPU cores.
+- `srv_id` (String) Server id.
+- `srv_location` (String) Datacenter location code.
+- `srv_primary_ip` (String) Primary IP address. Additional addresses, including IPv6, are in `ips`.
+- `srv_ram` (Number) Memory, in GB.
+- `srv_status` (Boolean) Whether the server is running.
+- `srv_status_install` (Boolean) Whether the server is installing.
+- `srv_suspended` (Boolean) Whether the server is suspended.
+- `srv_type` (String) Server type (vps or dedicated).
+- `srv_vps_type` (String) Virtualization type (e.g. kvm).
 
 <a id="nestedatt--timeouts"></a>
 ### Nested Schema for `timeouts`
@@ -150,8 +148,7 @@ Import is supported using the following syntax:
 terraform import gigahost_server.example 12345
 ```
 
-Deploy-time attributes the API does not return (`ssh_keys`, `root_password`,
-`hostname`, `ipv6` when the server list does not expose it, and the order/pricing
-details) are unset after import. Because `ssh_keys` requires replacement
-when it changes, declaring it for an imported server plans a destroy/recreate — omit
-it, or add `lifecycle { ignore_changes = [ssh_keys] }`.
+Deploy-time inputs the API does not return (`ssh_keys`, `password`, `hostname`,
+`os_name`/`os_dist`, and the order/pricing details) are unset after import. Because
+`ssh_keys` requires replacement when it changes, declaring it for an imported server
+plans a destroy/recreate — omit it, or add `lifecycle { ignore_changes = [ssh_keys] }`.

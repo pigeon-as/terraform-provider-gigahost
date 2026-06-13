@@ -1,4 +1,3 @@
 data "gigahost_os" "example" {
-  distro  = "Ubuntu"
-  version = "24.04"
+  os_name = "Ubuntu 24.04 LTS"
 }

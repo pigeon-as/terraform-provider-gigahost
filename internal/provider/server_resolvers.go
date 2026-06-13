@@ -31,7 +31,7 @@ func resolveProduct(catalog *client.DeployCatalog, productName string) (productI
 func resolveRegion(catalog *client.DeployCatalog, region string) (int64, error) {
 	var matches []client.DeployRegion
 	for _, r := range catalog.Regions {
-		if strings.EqualFold(r.RegionName, region) || strings.EqualFold(r.RegionNameShort, region) {
+		if strings.EqualFold(r.RegionName, region) {
 			matches = append(matches, r)
 		}
 	}
@@ -53,42 +53,41 @@ func resolveRegion(catalog *client.DeployCatalog, region string) (int64, error) 
 	}
 }
 
-func resolveOS(catalog []client.OSCatalogEntry, distro, version string) (int64, error) {
+// findOS looks up a deployable OS image by its catalog name or release
+// codename — the os_name (e.g. "Ubuntu 24.04 LTS") or os_dist (e.g. "noble")
+// the API actually returns, matched exactly.
+func findOS(catalog []client.OSCatalogEntry, os string) (*client.OSCatalogEntry, error) {
 	var matches []client.OSCatalogEntry
 	for _, e := range catalog {
-		if osMatches(e, distro, version) {
+		if strings.EqualFold(e.OS.OSName, os) || strings.EqualFold(e.OS.OSDist, os) {
 			matches = append(matches, e)
 		}
 	}
 
 	switch len(matches) {
 	case 0:
-		return 0, fmt.Errorf("no OS image found for distro %q version %q", distro, version)
+		return nil, fmt.Errorf("no OS image named %q in the catalog (use the os_name like %q or the codename like %q)", os, "Ubuntu 24.04 LTS", "noble")
 	case 1:
-		id, err := strconv.ParseInt(matches[0].OS.OsID, 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf("OS %q has an unparseable id %q: %w", matches[0].OS.OsName, matches[0].OS.OsID, err)
-		}
-		return id, nil
+		return &matches[0], nil
 	default:
 		names := make([]string, 0, len(matches))
 		for _, m := range matches {
-			names = append(names, m.OS.OsName)
+			names = append(names, m.OS.OSName)
 		}
-		return 0, fmt.Errorf("%d OS images match distro %q version %q (%s); narrow os_version", len(matches), distro, version, strings.Join(names, ", "))
+		return nil, fmt.Errorf("%d OS images match %q (%s)", len(matches), os, strings.Join(names, ", "))
 	}
 }
 
-func osMatches(e client.OSCatalogEntry, distro, version string) bool {
-	if distro != "" && !strings.EqualFold(e.Distro.DistName, distro) && !strings.EqualFold(e.Distro.DistValue, distro) {
-		return false
+func resolveOS(catalog []client.OSCatalogEntry, os string) (int64, error) {
+	e, err := findOS(catalog, os)
+	if err != nil {
+		return 0, err
 	}
-	if version != "" &&
-		!strings.Contains(strings.ToLower(e.OS.OsName), strings.ToLower(version)) &&
-		!strings.EqualFold(e.OS.OsDist, version) {
-		return false
+	id, err := strconv.ParseInt(e.OS.OSID, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("OS %q has an unparseable id %q: %w", e.OS.OSName, e.OS.OSID, err)
 	}
-	return true
+	return id, nil
 }
 
 func productOffersRegion(catalog *client.DeployCatalog, productID, regionID int64) bool {
@@ -108,6 +107,9 @@ func productOffersRegion(catalog *client.DeployCatalog, productID, regionID int6
 }
 
 func equalID(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
 	if a == b {
 		return true
 	}

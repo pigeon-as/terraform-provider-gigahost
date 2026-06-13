@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
+	"strconv"
 )
 
 type Server struct {
@@ -22,7 +23,7 @@ type Server struct {
 	SrvCores          flexInt64        `json:"srv_cores"`
 	SrvRAM            flexInt64        `json:"srv_ram"`
 	ProductID         string           `json:"product_id"`
-	OsID              string           `json:"os_id"`
+	OSID              string           `json:"os_id"`
 	OS                ServerOS         `json:"os"`
 	IPs               []ServerIP       `json:"ips"`
 	SrvFeatureBackups flexBool         `json:"srv_feature_backups"`
@@ -31,9 +32,9 @@ type Server struct {
 }
 
 type ServerOS struct {
-	OsID      flexInt64 `json:"os_id"`
-	OsName    string    `json:"os_name"`
-	OsRelease string    `json:"os_release"`
+	OSID      flexInt64 `json:"os_id"`
+	OSName    string    `json:"os_name"`
+	OSRelease string    `json:"os_release"`
 }
 
 type ServerIP struct {
@@ -89,6 +90,11 @@ type ServerDetail struct {
 }
 
 func (c *Client) GetServer(ctx context.Context, id string) (*ServerDetail, error) {
+	// An empty or non-numeric id would change the request path.
+	if _, err := strconv.ParseInt(id, 10, 64); err != nil {
+		return nil, fmt.Errorf("gigahost: invalid server id %q", id)
+	}
+
 	req, err := c.newRequest(ctx, http.MethodGet, path.Join("servers", id), nil, nil)
 	if err != nil {
 		return nil, err
@@ -98,8 +104,8 @@ func (c *Client) GetServer(ctx context.Context, id string) (*ServerDetail, error
 	if err := c.sendRequest(req, &servers); err != nil {
 		return nil, err
 	}
-	if len(servers) == 0 {
-		return nil, fmt.Errorf("gigahost: server %s: empty response", id)
+	if len(servers) != 1 {
+		return nil, fmt.Errorf("gigahost: server %s: expected one server in the response, got %d", id, len(servers))
 	}
 	return &servers[0], nil
 }

@@ -13,18 +13,18 @@ type Distro struct {
 }
 
 type OS struct {
-	OsID      string `json:"os_id"`
+	OSID      string `json:"os_id"`
 	DistID    string `json:"dist_id"`
-	OsName    string `json:"os_name"`
-	OsRelease string `json:"os_release"`
-	OsDist    string `json:"os_dist"`
-	OsArch    string `json:"os_arch"`
-	OsMinRAM  string `json:"os_minram"`
+	OSName    string `json:"os_name"`
+	OSRelease string `json:"os_release"`
+	OSDist    string `json:"os_dist"`
+	OSArch    string `json:"os_arch"`
+	OSMinRAM  string `json:"os_minram"`
 
-	OsCustomPartition flexBool `json:"os_custom_partition"`
-	OsSingleDiskOnly  flexBool `json:"os_single_disk_only"`
-	OsSupportRAID     flexBool `json:"os_support_raid"`
-	OsDedicatedOnly   flexBool `json:"os_dedicated_only"`
+	OSCustomPartition flexBool `json:"os_custom_partition"`
+	OSSingleDiskOnly  flexBool `json:"os_single_disk_only"`
+	OSSupportRAID     flexBool `json:"os_support_raid"`
+	OSDedicatedOnly   flexBool `json:"os_dedicated_only"`
 }
 
 type OSCatalogEntry struct {

@@ -25,7 +25,9 @@ description: |-
 The create wait covers the whole deployment, including the OS install — bare-metal
 installs can exceed the default 30-minute create timeout, so raise it for dedicated
 servers. A `ready` server may still be finishing its first boot, so retry SSH
-connections.
+connections. `os_name`/`os_dist` are deploy-time inputs: an OS reinstalled outside
+Terraform shows up in the computed `os` attribute on refresh, but does not force a
+replacement.
 
 {{ tffile "examples/resources/gigahost_server/extended.tf" }}
 
@@ -38,9 +40,8 @@ Import is supported using the following syntax:
 
 {{ codefile "shell" .ImportFile }}
 
-Deploy-time attributes the API does not return (`ssh_keys`, `root_password`,
-`hostname`, `ipv6` when the server list does not expose it, and the order/pricing
-details) are unset after import. Because `ssh_keys` requires replacement
-when it changes, declaring it for an imported server plans a destroy/recreate — omit
-it, or add `lifecycle { ignore_changes = [ssh_keys] }`.
+Deploy-time inputs the API does not return (`ssh_keys`, `password`, `hostname`,
+`os_name`/`os_dist`, and the order/pricing details) are unset after import. Because
+`ssh_keys` requires replacement when it changes, declaring it for an imported server
+plans a destroy/recreate — omit it, or add `lifecycle { ignore_changes = [ssh_keys] }`.
 {{- end }}

@@ -36,7 +36,6 @@ var (
 	_ resource.Resource                     = &serverResource{}
 	_ resource.ResourceWithConfigure        = &serverResource{}
 	_ resource.ResourceWithConfigValidators = &serverResource{}
-	_ resource.ResourceWithModifyPlan       = &serverResource{}
 	_ resource.ResourceWithImportState      = &serverResource{}
 	_ resource.ResourceWithValidateConfig   = &serverResource{}
 )
@@ -50,39 +49,38 @@ type serverResource struct {
 }
 
 type serverResourceModel struct {
-	Name         types.String   `tfsdk:"name"`
-	ProductName  types.String   `tfsdk:"product_name"`
-	Region       types.String   `tfsdk:"region"`
-	OsDistro     types.String   `tfsdk:"os_distro"`
-	OsVersion    types.String   `tfsdk:"os_version"`
-	Rescue       types.Bool     `tfsdk:"rescue"`
-	Hostname     types.String   `tfsdk:"hostname"`
-	SshKeys      types.Set      `tfsdk:"ssh_keys"`
-	Backups      types.Bool     `tfsdk:"backups"`
-	ProductId    types.Int64    `tfsdk:"product_id"`
-	PriceId      types.Int64    `tfsdk:"price_id"`
-	RegionId     types.Int64    `tfsdk:"region_id"`
-	OsId         types.Int64    `tfsdk:"os_id"`
-	ServerId     types.String   `tfsdk:"server_id"`
-	OrderId      types.Int64    `tfsdk:"order_id"`
-	Ipv4         types.String   `tfsdk:"ipv4"`
-	Ipv6         types.String   `tfsdk:"ipv6"`
-	RootPassword types.String   `tfsdk:"root_password"`
-	OrderNumber  types.Int64    `tfsdk:"order_number"`
-	RateHourly   types.Float64  `tfsdk:"rate_hourly"`
-	MonthlyCap   types.Int64    `tfsdk:"monthly_cap"`
-	Currency     types.String   `tfsdk:"currency"`
-	Cores        types.Int64    `tfsdk:"cores"`
-	Ram          types.Int64    `tfsdk:"ram"`
-	Location     types.String   `tfsdk:"location"`
-	Type         types.String   `tfsdk:"type"`
-	VpsType      types.String   `tfsdk:"vps_type"`
-	Running      types.Bool     `tfsdk:"running"`
-	Installing   types.Bool     `tfsdk:"installing"`
-	Suspended    types.Bool     `tfsdk:"suspended"`
-	Os           types.Object   `tfsdk:"os"`
-	Ips          types.List     `tfsdk:"ips"`
-	Timeouts     timeouts.Value `tfsdk:"timeouts"`
+	SrvName          types.String   `tfsdk:"srv_name"`
+	ProductName      types.String   `tfsdk:"product_name"`
+	RegionName       types.String   `tfsdk:"region_name"`
+	OSName           types.String   `tfsdk:"os_name"`
+	OSDist           types.String   `tfsdk:"os_dist"`
+	Rescue           types.Bool     `tfsdk:"rescue"`
+	Hostname         types.String   `tfsdk:"hostname"`
+	SshKeys          types.Set      `tfsdk:"ssh_keys"`
+	Backups          types.Bool     `tfsdk:"backups"`
+	ProductId        types.Int64    `tfsdk:"product_id"`
+	PriceId          types.Int64    `tfsdk:"price_id"`
+	RegionId         types.Int64    `tfsdk:"region_id"`
+	OsId             types.Int64    `tfsdk:"os_id"`
+	SrvID            types.String   `tfsdk:"srv_id"`
+	OrderId          types.Int64    `tfsdk:"order_id"`
+	SrvPrimaryIP     types.String   `tfsdk:"srv_primary_ip"`
+	Password         types.String   `tfsdk:"password"`
+	OrderNumber      types.Int64    `tfsdk:"order_number"`
+	RateHourly       types.Float64  `tfsdk:"rate_hourly"`
+	MonthlyCap       types.Int64    `tfsdk:"monthly_cap"`
+	Currency         types.String   `tfsdk:"currency"`
+	SrvCores         types.Int64    `tfsdk:"srv_cores"`
+	SrvRAM           types.Int64    `tfsdk:"srv_ram"`
+	SrvLocation      types.String   `tfsdk:"srv_location"`
+	SrvType          types.String   `tfsdk:"srv_type"`
+	SrvVpsType       types.String   `tfsdk:"srv_vps_type"`
+	SrvStatus        types.Bool     `tfsdk:"srv_status"`
+	SrvStatusInstall types.Bool     `tfsdk:"srv_status_install"`
+	SrvSuspended     types.Bool     `tfsdk:"srv_suspended"`
+	Os               types.Object   `tfsdk:"os"`
+	Ips              types.List     `tfsdk:"ips"`
+	Timeouts         timeouts.Value `tfsdk:"timeouts"`
 }
 
 func (r *serverResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -91,9 +89,9 @@ func (r *serverResource) Metadata(_ context.Context, req resource.MetadataReques
 
 func (r *serverResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
-		resourcevalidator.RequiredTogether(
-			path.MatchRoot("os_distro"),
-			path.MatchRoot("os_version"),
+		resourcevalidator.Conflicting(
+			path.MatchRoot("os_name"),
+			path.MatchRoot("os_dist"),
 		),
 	}
 }
@@ -106,16 +104,16 @@ func (r *serverResource) ValidateConfig(ctx context.Context, req resource.Valida
 	}
 	// Unknown inputs (e.g. terraform validate, or values from other resources)
 	// can't be evaluated; the rule is checked once they are known.
-	if data.OsDistro.IsUnknown() || data.Rescue.IsUnknown() {
+	if data.OSName.IsUnknown() || data.OSDist.IsUnknown() || data.Rescue.IsUnknown() {
 		return
 	}
-	hasOS := !data.OsDistro.IsNull()
+	hasOS := !data.OSName.IsNull() || !data.OSDist.IsNull()
 	hasRescue := !data.Rescue.IsNull() && data.Rescue.ValueBool()
 	if hasOS == hasRescue {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("rescue"),
 			"Invalid OS or Rescue Configuration",
-			"Provide os_distro and os_version to install an OS, or set rescue = true (exactly one).",
+			"Provide os_name or os_dist to install an OS, or set rescue = true (exactly one).",
 		)
 	}
 }
@@ -124,7 +122,7 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Deploys and manages an hourly-billed Gigahost cloud server — a KVM virtual machine or a dedicated (bare metal) server, depending on the chosen product.",
 		Attributes: map[string]schema.Attribute{
-			"name": schema.StringAttribute{
+			"srv_name": schema.StringAttribute{
 				Optional:            true,
 				Description:         "Descriptive name for the server. When unset, the server keeps its initial name.",
 				MarkdownDescription: "Descriptive name for the server. When unset, the server keeps its initial name.",
@@ -135,21 +133,23 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 				MarkdownDescription: "Product name from the catalog, e.g. \"KVM Value VPS 4GB\".",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"region": schema.StringAttribute{
+			"region_name": schema.StringAttribute{
 				Required:            true,
 				Description:         "Region name to deploy in, e.g. \"Sandefjord\".",
 				MarkdownDescription: "Region name to deploy in, e.g. \"Sandefjord\".",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"os_distro": schema.StringAttribute{
+			"os_name": schema.StringAttribute{
 				Optional:            true,
-				Description:         "OS distribution to install, e.g. \"Ubuntu\". Provide os_distro + os_version, or rescue.",
-				MarkdownDescription: "OS distribution to install, e.g. \"Ubuntu\". Provide os_distro + os_version, or rescue.",
+				Description:         "OS image to install, by catalog name, e.g. \"Ubuntu 24.04 LTS\". Provide os_name or os_dist (to install an OS), or rescue.",
+				MarkdownDescription: "OS image to install, by catalog name (`os_name`), e.g. \"Ubuntu 24.04 LTS\". Provide `os_name` or `os_dist` (to install an OS), or `rescue`.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
-			"os_version": schema.StringAttribute{
+			"os_dist": schema.StringAttribute{
 				Optional:            true,
-				Description:         "OS version to install, e.g. \"24.04\" (matches the OS name or release codename).",
-				MarkdownDescription: "OS version to install, e.g. \"24.04\" (matches the OS name or release codename).",
+				Description:         "OS image to install, by release codename, e.g. \"noble\". Provide os_name or os_dist (to install an OS), or rescue.",
+				MarkdownDescription: "OS image to install, by release codename (`os_dist`), e.g. \"noble\". Provide `os_name` or `os_dist` (to install an OS), or `rescue`.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"rescue": schema.BoolAttribute{
 				Optional:            true,
@@ -196,14 +196,14 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 			},
 			"os_id": schema.Int64Attribute{
 				Computed:            true,
-				Description:         "Resolved OS image id (from os_distro + os_version).",
-				MarkdownDescription: "Resolved OS image id (from os_distro + os_version).",
+				Description:         "Resolved OS image id (from os_name or os_dist).",
+				MarkdownDescription: "Resolved OS image id (from os_name or os_dist).",
 				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
-			"server_id": schema.StringAttribute{
+			"srv_id": schema.StringAttribute{
 				Computed:            true,
-				Description:         "Server id (srv_id).",
-				MarkdownDescription: "Server id (srv_id).",
+				Description:         "Server id.",
+				MarkdownDescription: "Server id.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"order_id": schema.Int64Attribute{
@@ -212,19 +212,13 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 				MarkdownDescription: "Id of the deployment order.",
 				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
-			"ipv4": schema.StringAttribute{
+			"srv_primary_ip": schema.StringAttribute{
 				Computed:            true,
-				Description:         "Primary IPv4 address.",
-				MarkdownDescription: "Primary IPv4 address.",
+				Description:         "Primary IP address. Additional addresses, including IPv6, are in ips.",
+				MarkdownDescription: "Primary IP address. Additional addresses, including IPv6, are in `ips`.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"ipv6": schema.StringAttribute{
-				Computed:            true,
-				Description:         "Primary IPv6 address (the API may report it only at deploy time, so it is unset after import).",
-				MarkdownDescription: "Primary IPv6 address (the API may report it only at deploy time, so it is unset after import).",
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			},
-			"root_password": schema.StringAttribute{
+			"password": schema.StringAttribute{
 				Computed:            true,
 				Sensitive:           true,
 				Description:         "Initial root password (only set when the server is deployed without an SSH key). Stored in Terraform state in plaintext.",
@@ -255,53 +249,50 @@ func (r *serverResource) Schema(ctx context.Context, _ resource.SchemaRequest, r
 				MarkdownDescription: "Currency of the pricing.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"cores": schema.Int64Attribute{
+			"srv_cores": schema.Int64Attribute{
 				Computed:            true,
 				Description:         "Number of CPU cores.",
 				MarkdownDescription: "Number of CPU cores.",
 				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
-			"ram": schema.Int64Attribute{
+			"srv_ram": schema.Int64Attribute{
 				Computed:            true,
 				Description:         "Memory, in GB.",
 				MarkdownDescription: "Memory, in GB.",
 				PlanModifiers:       []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
-			"location": schema.StringAttribute{
+			"srv_location": schema.StringAttribute{
 				Computed:            true,
 				Description:         "Datacenter location code.",
 				MarkdownDescription: "Datacenter location code.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"type": schema.StringAttribute{
+			"srv_type": schema.StringAttribute{
 				Computed:            true,
 				Description:         "Server type (vps or dedicated).",
 				MarkdownDescription: "Server type (vps or dedicated).",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"vps_type": schema.StringAttribute{
+			"srv_vps_type": schema.StringAttribute{
 				Computed:            true,
 				Description:         "Virtualization type (e.g. kvm).",
 				MarkdownDescription: "Virtualization type (e.g. kvm).",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"running": schema.BoolAttribute{
+			"srv_status": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the server is running.",
 				MarkdownDescription: "Whether the server is running.",
-				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
-			"installing": schema.BoolAttribute{
+			"srv_status_install": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the server is installing.",
 				MarkdownDescription: "Whether the server is installing.",
-				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
-			"suspended": schema.BoolAttribute{
+			"srv_suspended": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the server is suspended.",
 				MarkdownDescription: "Whether the server is suspended.",
-				PlanModifiers:       []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
 			"os": schema.SingleNestedAttribute{
 				Computed:            true,
@@ -353,85 +344,6 @@ func (r *serverResource) Configure(_ context.Context, req resource.ConfigureRequ
 	r.client = c
 }
 
-func (r *serverResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.Plan.Raw.IsNull() || r.client == nil {
-		return
-	}
-
-	var plan serverResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	needProduct := plan.ProductId.IsUnknown() && !plan.ProductName.IsUnknown()
-	needRegion := plan.RegionId.IsUnknown() && !plan.Region.IsUnknown()
-	needOS := !plan.OsDistro.IsNull() && !plan.OsDistro.IsUnknown() && !plan.OsVersion.IsNull() && !plan.OsVersion.IsUnknown()
-	if needOS && !req.State.Raw.IsNull() {
-		var stateDistro, stateVersion types.String
-		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("os_distro"), &stateDistro)...)
-		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("os_version"), &stateVersion)...)
-		if plan.OsDistro.Equal(stateDistro) && plan.OsVersion.Equal(stateVersion) {
-			needOS = false
-		}
-	}
-
-	if needProduct || needRegion {
-		catalog, err := r.client.GetDeployCatalog(ctx)
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
-			return
-		}
-		if needProduct {
-			productID, priceID, err := resolveProduct(catalog, plan.ProductName.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddAttributeError(path.Root("product_name"), "Invalid Server Product", err.Error())
-			} else {
-				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("product_id"), productID)...)
-				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("price_id"), priceID)...)
-			}
-		}
-		if needRegion {
-			regionID, err := resolveRegion(catalog, plan.Region.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddAttributeError(path.Root("region"), "Invalid Region", err.Error())
-			} else {
-				resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("region_id"), regionID)...)
-			}
-		}
-
-		var pid, rid types.Int64
-		resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root("product_id"), &pid)...)
-		resp.Diagnostics.Append(resp.Plan.GetAttribute(ctx, path.Root("region_id"), &rid)...)
-		if !pid.IsUnknown() && !pid.IsNull() && !rid.IsUnknown() && !rid.IsNull() &&
-			!productOffersRegion(catalog, pid.ValueInt64(), rid.ValueInt64()) {
-			resp.Diagnostics.AddAttributeError(path.Root("region"), "Incompatible Product and Region",
-				fmt.Sprintf("Product %q is not available in region %q.", plan.ProductName.ValueString(), plan.Region.ValueString()))
-		}
-	}
-
-	if needOS {
-		osCatalog, err := r.client.GetOSCatalog(ctx)
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
-			return
-		}
-		osID, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddAttributeError(path.Root("os_distro"), "Invalid OS", err.Error())
-		} else {
-			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("os_id"), osID)...)
-			if !req.State.Raw.IsNull() {
-				var stateOSID types.Int64
-				resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("os_id"), &stateOSID)...)
-				if !stateOSID.IsNull() && stateOSID.ValueInt64() != osID {
-					resp.RequiresReplace = append(resp.RequiresReplace, path.Root("os_id"))
-				}
-			}
-		}
-	}
-}
-
 func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan serverResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -447,50 +359,46 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	ctx, cancel := context.WithTimeout(ctx, createTimeout)
 	defer cancel()
 
-	productID := plan.ProductId.ValueInt64()
-	priceID := plan.PriceId.ValueInt64()
-	regionID := plan.RegionId.ValueInt64()
-	if plan.ProductId.IsUnknown() || plan.RegionId.IsUnknown() {
-		catalog, err := r.client.GetDeployCatalog(ctx)
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
-			return
-		}
-		if plan.ProductId.IsUnknown() {
-			productID, priceID, err = resolveProduct(catalog, plan.ProductName.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddError("Invalid Server Product", err.Error())
-				return
-			}
-		}
-		if plan.RegionId.IsUnknown() {
-			regionID, err = resolveRegion(catalog, plan.Region.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddError("Invalid Region", err.Error())
-				return
-			}
-		}
+	catalog, err := r.client.GetDeployCatalog(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Read Gigahost Server Catalog", err.Error())
+		return
+	}
+	productID, priceID, err := resolveProduct(catalog, plan.ProductName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("product_name"), "Invalid Server Product", err.Error())
+		return
+	}
+	regionID, err := resolveRegion(catalog, plan.RegionName.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddAttributeError(path.Root("region_name"), "Invalid Region", err.Error())
+		return
+	}
+	if !productOffersRegion(catalog, productID, regionID) {
+		resp.Diagnostics.AddAttributeError(path.Root("region_name"), "Incompatible Product and Region",
+			fmt.Sprintf("Product %q is not available in region %q.", plan.ProductName.ValueString(), plan.RegionName.ValueString()))
+		return
 	}
 
 	osID := types.Int64Null()
 	var osIDPtr *int64
-	if !plan.OsDistro.IsNull() && plan.OsDistro.ValueString() != "" {
-		if !plan.OsId.IsUnknown() && !plan.OsId.IsNull() {
-			osID = plan.OsId
-		} else {
-			osCatalog, err := r.client.GetOSCatalog(ctx)
-			if err != nil {
-				resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
-				return
-			}
-			id, err := resolveOS(osCatalog, plan.OsDistro.ValueString(), plan.OsVersion.ValueString())
-			if err != nil {
-				resp.Diagnostics.AddError("Invalid OS", err.Error())
-				return
-			}
-			osID = types.Int64Value(id)
+	osImage, osPath := plan.OSName.ValueString(), path.Root("os_name")
+	if plan.OSName.IsNull() {
+		osImage, osPath = plan.OSDist.ValueString(), path.Root("os_dist")
+	}
+	if osImage != "" {
+		osCatalog, err := r.client.GetOSCatalog(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to Read Gigahost OS Catalog", err.Error())
+			return
 		}
-		v := osID.ValueInt64()
+		id, err := resolveOS(osCatalog, osImage)
+		if err != nil {
+			resp.Diagnostics.AddAttributeError(osPath, "Invalid OS", err.Error())
+			return
+		}
+		osID = types.Int64Value(id)
+		v := id
 		osIDPtr = &v
 	}
 
@@ -540,9 +448,9 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	state.PriceId = types.Int64Value(priceID)
 	state.RegionId = types.Int64Value(regionID)
 	state.OsId = osID
-	state.ServerId = types.StringNull()
+	state.SrvID = types.StringNull()
 	state.OrderId = types.Int64Value(orderID)
-	state.RootPassword = types.StringNull()
+	state.Password = types.StringNull()
 	state.OrderNumber = types.Int64Null()
 	if len(result.OrderNumbers) > 0 {
 		state.OrderNumber = types.Int64Value(result.OrderNumbers[0])
@@ -555,10 +463,10 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 	server, err := r.waitForServer(ctx, orderID)
 	if err != nil {
 		if server != nil && server.SrvID != "" {
-			state.ServerId = types.StringValue(server.SrvID)
+			state.SrvID = types.StringValue(server.SrvID)
 		}
 		var hint string
-		if state.ServerId.IsNull() {
+		if state.SrvID.IsNull() {
 			hint = fmt.Sprintf("No server id was observed for %s, so terraform destroy cannot cancel it; check the Gigahost control panel and cancel it manually if needed.", orderRef(&state))
 		} else {
 			hint = fmt.Sprintf("The server was saved to Terraform state and marked tainted; terraform destroy will cancel %s, or clear the resource if the server no longer exists.", orderRef(&state))
@@ -568,41 +476,33 @@ func (r *serverResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 	serverID := server.SrvID
-	state.ServerId = types.StringValue(serverID)
+	state.SrvID = types.StringValue(serverID)
 	if server.Password != "" {
-		state.RootPassword = types.StringValue(server.Password)
+		state.Password = types.StringValue(server.Password)
 	}
 
 	var full *client.Server
-	servers, err := r.client.ListServers(ctx)
+	detail, err := r.client.GetServer(ctx, serverID)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to Read Gigahost Server Details",
 			fmt.Sprintf("The server deployed, but reading its details failed: %s\n\nThe server was saved to Terraform state and marked tainted; terraform untaint will keep it, and the next refresh fills in the missing details.", err),
 		)
 	} else {
-		for i := range servers {
-			if equalID(servers[i].SrvID, serverID) {
-				full = &servers[i]
-				break
-			}
-		}
+		full = &detail.Server
 	}
 	applyServerState(&state, full)
-	if (state.Ipv4.IsNull() || state.Ipv4.ValueString() == "") && server.IP != "" {
-		state.Ipv4 = types.StringValue(server.IP)
-	}
-	if state.Ipv6.IsNull() && server.IPv6 != "" {
-		state.Ipv6 = types.StringValue(server.IPv6)
+	if state.SrvPrimaryIP.IsNull() && server.IP != "" {
+		state.SrvPrimaryIP = types.StringValue(server.IP)
 	}
 	if resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 		return
 	}
 
-	if !plan.Name.IsNull() && plan.Name.ValueString() != "" {
-		if err := r.client.UpdateServerName(ctx, serverID, plan.Name.ValueString()); err != nil {
-			state.Name = types.StringNull()
+	if !plan.SrvName.IsNull() && plan.SrvName.ValueString() != "" {
+		if err := r.client.UpdateServerName(ctx, serverID, plan.SrvName.ValueString()); err != nil {
+			state.SrvName = types.StringNull()
 			resp.Diagnostics.AddError("Unable to Set Gigahost Server Name", err.Error())
 			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 			return
@@ -629,33 +529,37 @@ func deployedFromStatus(s *client.DeployStatusServer) *deployedServer {
 	return out
 }
 
-func deployedFromList(s *client.Server) *deployedServer {
-	out := &deployedServer{SrvID: s.SrvID, IP: s.SrvPrimaryIP}
-	for _, ip := range s.IPs {
-		if strings.EqualFold(ip.IPv4v6, "ipv6") {
-			out.IPv6 = ip.IPAddress
-			break
-		}
+// mergeDeployed carries forward fields an earlier poll revealed that a later
+// one omits — chiefly the root password, which deploy status only reports
+// while the server is installing and drops once it is ready. The primary IPv4
+// (IP) is not carried forward: it is assigned up front and reported on every
+// poll, so it never needs rescuing.
+func mergeDeployed(prev, next *deployedServer) *deployedServer {
+	if prev == nil {
+		return next
 	}
-	return out
+	if next.SrvID == "" {
+		next.SrvID = prev.SrvID
+	}
+	if next.Password == "" {
+		next.Password = prev.Password
+	}
+	if next.IPv6 == "" {
+		next.IPv6 = prev.IPv6
+	}
+	return next
 }
 
 // waitForServer polls the deploy status until the order's server reaches a
-// final status; the last server seen is returned even on failure, so
-// callers can persist its id.
+// final status. The last server seen is returned even on failure, so callers
+// can persist its id. An order that never reaches a final status — including
+// one the deploy status API stops reporting — surfaces as a timeout.
 func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*deployedServer, error) {
 	ticker := time.NewTicker(serverDeployPollInterval)
 	defer ticker.Stop()
 
-	const (
-		maxPollErrors   = 4
-		listEveryMisses = 3
-		maxGoneChecks   = 4
-	)
+	const maxPollErrors = 4
 	pollErrors := 0
-	statusMisses := 0
-	goneChecks := 0
-	seen := false
 	var last *deployedServer
 
 	for {
@@ -667,19 +571,17 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*dep
 			}
 		} else {
 			pollErrors = 0
-			found := false
 			for i := range status.Servers {
 				if int64(status.Servers[i].OrderID) != orderID {
 					continue
 				}
-				found = true
-				statusMisses = 0
-				goneChecks = 0
-				last = deployedFromStatus(&status.Servers[i])
-				seen = seen || last.SrvID != ""
+				last = mergeDeployed(last, deployedFromStatus(&status.Servers[i]))
 				switch status.Servers[i].Status {
 				case "ready", "rescue", "iso":
-					return last, nil
+					// Terminal, but unusable until a server id is known.
+					if last.SrvID != "" {
+						return last, nil
+					}
 				case "error", "failed", "cancelled", "suspended":
 					return last, fmt.Errorf("server (order %d) failed to deploy: status %q", orderID, status.Servers[i].Status)
 				default:
@@ -688,37 +590,7 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*dep
 						"status":   status.Servers[i].Status,
 					})
 				}
-			}
-			if !found {
-				statusMisses++
-				if statusMisses%listEveryMisses == 0 {
-					srvID := ""
-					if last != nil {
-						srvID = last.SrvID
-					}
-					srv, gone := r.checkDeployed(ctx, orderID, srvID)
-					switch {
-					case srv != nil:
-						last = deployedFromList(srv)
-						seen = true
-						goneChecks = 0
-						if serverSettled(srv) {
-							return last, nil
-						}
-						tflog.Debug(ctx, "order missing from deploy status; server still provisioning", map[string]any{
-							"order_id": orderID,
-						})
-					case gone && seen:
-						goneChecks++
-						if goneChecks >= maxGoneChecks {
-							return last, fmt.Errorf("server %s (order %d) disappeared while provisioning: the deploy status and server APIs no longer report it", last.SrvID, orderID)
-						}
-					default:
-						tflog.Debug(ctx, "order not reported by deploy status", map[string]any{
-							"order_id": orderID,
-						})
-					}
-				}
+				break
 			}
 		}
 
@@ -728,34 +600,6 @@ func (r *serverResource) waitForServer(ctx context.Context, orderID int64) (*dep
 		case <-ticker.C:
 		}
 	}
-}
-
-func serverSettled(s *client.Server) bool {
-	return !bool(s.SrvStatusInstall) && (bool(s.SrvStatus) || bool(s.SrvStatusRescue))
-}
-
-func (r *serverResource) checkDeployed(ctx context.Context, orderID int64, srvID string) (*client.Server, bool) {
-	if srvID != "" {
-		detail, err := r.client.GetServer(ctx, srvID)
-		if err != nil {
-			return nil, errors.Is(err, client.ErrNotFound)
-		}
-		if strings.EqualFold(detail.Order.OrderStatus, "cancelled") {
-			return nil, true
-		}
-		return &detail.Server, false
-	}
-	servers, err := r.client.ListServers(ctx)
-	if err != nil {
-		return nil, false
-	}
-	want := strconv.FormatInt(orderID, 10)
-	for i := range servers {
-		if equalID(servers[i].Order.OrderID, want) {
-			return &servers[i], false
-		}
-	}
-	return nil, true
 }
 
 // orderRef names the deployment order for error messages, preferring the
@@ -786,50 +630,41 @@ var serverIPAttrTypes = map[string]attr.Type{
 	"ip_gateway": types.StringType,
 }
 
+// applyServerState writes the API-derived fields of a server onto the model
+// in place. When s is nil (the server is not yet known) it nulls those same
+// computed fields, so the model is always left fully known.
 func applyServerState(state *serverResourceModel, s *client.Server) {
 	if s == nil {
-		state.Ipv4 = types.StringNull()
-		state.Ipv6 = types.StringNull()
-		state.Cores = types.Int64Null()
-		state.Ram = types.Int64Null()
-		state.Location = types.StringNull()
-		state.Type = types.StringNull()
-		state.VpsType = types.StringNull()
-		state.Running = types.BoolNull()
-		state.Installing = types.BoolNull()
-		state.Suspended = types.BoolNull()
+		state.SrvPrimaryIP = types.StringNull()
+		state.SrvCores = types.Int64Null()
+		state.SrvRAM = types.Int64Null()
+		state.SrvLocation = types.StringNull()
+		state.SrvType = types.StringNull()
+		state.SrvVpsType = types.StringNull()
+		state.SrvStatus = types.BoolNull()
+		state.SrvStatusInstall = types.BoolNull()
+		state.SrvSuspended = types.BoolNull()
 		state.Os = types.ObjectNull(serverOSAttrTypes)
 		state.Ips = types.ListNull(types.ObjectType{AttrTypes: serverIPAttrTypes})
 		return
 	}
 
-	state.Ipv4 = types.StringValue(s.SrvPrimaryIP)
-	ipv6 := types.StringNull()
-	for _, ip := range s.IPs {
-		if strings.EqualFold(ip.IPv4v6, "ipv6") {
-			ipv6 = types.StringValue(ip.IPAddress)
-			break
-		}
+	state.SrvPrimaryIP = types.StringNull()
+	if s.SrvPrimaryIP != "" {
+		state.SrvPrimaryIP = types.StringValue(s.SrvPrimaryIP)
 	}
-	// The server list does not always expose the IPv6 address that deploy
-	// status reported, so a known address is kept rather than nulled.
-	if !ipv6.IsNull() {
-		state.Ipv6 = ipv6
-	} else if state.Ipv6.IsUnknown() || state.Ipv6.ValueString() == "" {
-		state.Ipv6 = types.StringNull()
-	}
-	state.Cores = types.Int64Value(int64(s.SrvCores))
-	state.Ram = types.Int64Value(int64(s.SrvRAM))
-	state.Location = types.StringValue(s.SrvLocation)
-	state.Type = types.StringValue(s.SrvType)
-	state.VpsType = types.StringValue(s.SrvVpsType)
-	state.Running = types.BoolValue(bool(s.SrvStatus))
-	state.Installing = types.BoolValue(bool(s.SrvStatusInstall))
-	state.Suspended = types.BoolValue(bool(s.SrvSuspended))
+	state.SrvCores = types.Int64Value(int64(s.SrvCores))
+	state.SrvRAM = types.Int64Value(int64(s.SrvRAM))
+	state.SrvLocation = types.StringValue(s.SrvLocation)
+	state.SrvType = types.StringValue(s.SrvType)
+	state.SrvVpsType = types.StringValue(s.SrvVpsType)
+	state.SrvStatus = types.BoolValue(bool(s.SrvStatus))
+	state.SrvStatusInstall = types.BoolValue(bool(s.SrvStatusInstall))
+	state.SrvSuspended = types.BoolValue(bool(s.SrvSuspended))
 	state.Os = types.ObjectValueMust(serverOSAttrTypes, map[string]attr.Value{
-		"os_id":      types.Int64Value(int64(s.OS.OsID)),
-		"os_name":    types.StringValue(s.OS.OsName),
-		"os_release": types.StringValue(s.OS.OsRelease),
+		"os_id":      types.Int64Value(int64(s.OS.OSID)),
+		"os_name":    types.StringValue(s.OS.OSName),
+		"os_release": types.StringValue(s.OS.OSRelease),
 	})
 	ipElems := make([]attr.Value, 0, len(s.IPs))
 	for _, ip := range s.IPs {
@@ -854,7 +689,7 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	var found *client.Server
-	if state.ServerId.IsNull() {
+	if state.SrvID.IsNull() {
 		servers, err := r.client.ListServers(ctx)
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to Read Gigahost Server", err.Error())
@@ -867,7 +702,7 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			for i := range servers {
 				if equalID(servers[i].Order.OrderID, orderID) {
 					found = &servers[i]
-					state.ServerId = types.StringValue(servers[i].SrvID)
+					state.SrvID = types.StringValue(servers[i].SrvID)
 					break
 				}
 			}
@@ -881,7 +716,7 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			return
 		}
 	} else {
-		detail, err := r.client.GetServer(ctx, state.ServerId.ValueString())
+		detail, err := r.client.GetServer(ctx, state.SrvID.ValueString())
 		switch {
 		case err == nil:
 			found = &detail.Server
@@ -896,8 +731,8 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 		return
 	}
 
-	if !state.Name.IsNull() {
-		state.Name = types.StringValue(found.SrvName)
+	if !state.SrvName.IsNull() {
+		state.SrvName = types.StringValue(found.SrvName)
 	}
 	applyServerState(&state, found)
 
@@ -909,8 +744,8 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 			state.ProductId = types.Int64Value(id)
 		}
 	}
-	if state.Region.IsNull() && found.Datacenter.RegionName != "" {
-		state.Region = types.StringValue(found.Datacenter.RegionName)
+	if state.RegionName.IsNull() && found.Datacenter.RegionName != "" {
+		state.RegionName = types.StringValue(found.Datacenter.RegionName)
 	}
 	if state.RegionId.IsNull() {
 		if id, err := strconv.ParseInt(found.Datacenter.RegionID, 10, 64); err == nil && id != 0 {
@@ -918,7 +753,7 @@ func (r *serverResource) Read(ctx context.Context, req resource.ReadRequest, res
 		}
 	}
 	if state.OsId.IsNull() {
-		if id := int64(found.OS.OsID); id != 0 {
+		if id := int64(found.OS.OSID); id != 0 {
 			state.OsId = types.Int64Value(id)
 		}
 	}
@@ -940,8 +775,8 @@ func (r *serverResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	if !plan.Name.Equal(state.Name) {
-		if err := r.client.UpdateServerName(ctx, state.ServerId.ValueString(), plan.Name.ValueString()); err != nil {
+	if !plan.SrvName.IsNull() && !plan.SrvName.Equal(state.SrvName) {
+		if err := r.client.UpdateServerName(ctx, state.SrvID.ValueString(), plan.SrvName.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Unable to Update Gigahost Server Name", err.Error())
 			return
 		}
@@ -949,9 +784,9 @@ func (r *serverResource) Update(ctx context.Context, req resource.UpdateRequest,
 
 	// Apply the in-place changes onto prior state, so computed attributes
 	// keep their stored values and never inherit unknowns from the plan.
-	state.Name = plan.Name
-	state.OsDistro = plan.OsDistro
-	state.OsVersion = plan.OsVersion
+	state.SrvName = plan.SrvName
+	state.OSName = plan.OSName
+	state.OSDist = plan.OSDist
 	state.OsId = plan.OsId
 	state.Timeouts = plan.Timeouts
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -966,7 +801,7 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 
 	// A partially created server (the deploy wait failed before a server id
 	// was seen) cannot be cancelled through the API.
-	if state.ServerId.IsNull() || state.ServerId.ValueString() == "" {
+	if state.SrvID.IsNull() || state.SrvID.ValueString() == "" {
 		resp.Diagnostics.AddError(
 			"Unable to Cancel Gigahost Server",
 			fmt.Sprintf("The server has no id in state. Cancel %s in the Gigahost control panel if it is still active, then remove the resource with terraform state rm.", orderRef(&state)),
@@ -974,9 +809,9 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	if err := r.client.CancelServer(ctx, state.ServerId.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
+	if err := r.client.CancelServer(ctx, state.SrvID.ValueString()); err != nil && !errors.Is(err, client.ErrNotFound) {
 		// Cancel answers 400 rather than 404 for nonexistent or already-cancelled servers.
-		detail, getErr := r.client.GetServer(ctx, state.ServerId.ValueString())
+		detail, getErr := r.client.GetServer(ctx, state.SrvID.ValueString())
 		if errors.Is(getErr, client.ErrNotFound) ||
 			(getErr == nil && strings.EqualFold(detail.Order.OrderStatus, "cancelled")) {
 			resp.Diagnostics.AddWarning(
@@ -993,5 +828,5 @@ func (r *serverResource) Delete(ctx context.Context, req resource.DeleteRequest,
 }
 
 func (r *serverResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("server_id"), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root("srv_id"), req, resp)
 }

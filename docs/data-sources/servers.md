@@ -35,6 +35,7 @@ Read-Only:
 - `os_id` (String) Installed OS image (version) id.
 - `product_id` (String) Product id.
 - `srv_cores` (Number) Number of CPU cores.
+- `srv_feature_backups` (Boolean) Whether daily backups are enabled.
 - `srv_hostname` (String, Deprecated) Server hostname; not populated by the API.
 - `srv_id` (String) Server id.
 - `srv_location` (String) Datacenter location code.

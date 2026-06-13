@@ -22,11 +22,7 @@ const (
 	defaultRetryMax = 2
 )
 
-var (
-	ErrNotFound     = errors.New("gigahost: resource not found")
-	ErrUnauthorized = errors.New("gigahost: unauthorized")
-	ErrForbidden    = errors.New("gigahost: forbidden")
-)
+var ErrNotFound = errors.New("gigahost: resource not found")
 
 type Config struct {
 	Address    string
@@ -238,13 +234,5 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) Is(target error) bool {
-	switch target {
-	case ErrNotFound:
-		return e.StatusCode == http.StatusNotFound
-	case ErrUnauthorized:
-		return e.StatusCode == http.StatusUnauthorized
-	case ErrForbidden:
-		return e.StatusCode == http.StatusForbidden
-	}
-	return false
+	return target == ErrNotFound && e.StatusCode == http.StatusNotFound
 }

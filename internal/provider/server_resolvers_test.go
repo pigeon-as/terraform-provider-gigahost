@@ -71,8 +71,8 @@ func TestResolveRegion(t *testing.T) {
 		wantErr bool
 	}{
 		{"by name", "Sandefjord", 1, false},
-		{"by short name", "DC1", 1, false},
 		{"case insensitive", "sandefjord", 1, false},
+		{"short name no longer matches", "DC1", 0, true},
 		{"not found", "Nowhere", 0, true},
 		{"inactive", "Bergen", 0, true},
 	}
@@ -91,9 +91,9 @@ func TestResolveRegion(t *testing.T) {
 
 func testResolverOSCatalog() []client.OSCatalogEntry {
 	return []client.OSCatalogEntry{
-		{Distro: client.Distro{DistName: "Ubuntu", DistValue: "ubuntu"}, OS: client.OS{OsID: "100", OsName: "Ubuntu 24.04 LTS", OsDist: "noble"}},
-		{Distro: client.Distro{DistName: "Ubuntu", DistValue: "ubuntu"}, OS: client.OS{OsID: "101", OsName: "Ubuntu 22.04 LTS", OsDist: "jammy"}},
-		{Distro: client.Distro{DistName: "Debian", DistValue: "debian"}, OS: client.OS{OsID: "200", OsName: "Debian 12", OsDist: "bookworm"}},
+		{Distro: client.Distro{DistName: "Ubuntu", DistValue: "ubuntu"}, OS: client.OS{OSID: "100", OSName: "Ubuntu 24.04 LTS", OSDist: "noble"}},
+		{Distro: client.Distro{DistName: "Ubuntu", DistValue: "ubuntu"}, OS: client.OS{OSID: "101", OSName: "Ubuntu 22.04 LTS", OSDist: "jammy"}},
+		{Distro: client.Distro{DistName: "Debian", DistValue: "debian"}, OS: client.OS{OSID: "200", OSName: "Debian 12", OSDist: "bookworm"}},
 	}
 }
 
@@ -111,20 +111,21 @@ func TestResolveOS(t *testing.T) {
 	catalog := testResolverOSCatalog()
 	tests := []struct {
 		name    string
-		distro  string
-		version string
+		os      string
 		wantID  int64
 		wantErr bool
 	}{
-		{"name and version substring", "Ubuntu", "24.04", 100, false},
-		{"slug and codename", "ubuntu", "noble", 100, false},
-		{"distro not found", "Arch", "1", 0, true},
-		{"version not found", "Ubuntu", "18.04", 0, true},
-		{"ambiguous version substring", "Ubuntu", "2", 0, true},
+		{"by os_name", "Ubuntu 24.04 LTS", 100, false},
+		{"by codename", "noble", 100, false},
+		{"case insensitive name", "ubuntu 24.04 lts", 100, false},
+		{"case insensitive codename", "NOBLE", 100, false},
+		{"not found", "Ubuntu 18.04 LTS", 0, true},
+		{"partial name does not match", "24.04", 0, true},
+		{"distro alone does not match", "Ubuntu", 0, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id, err := resolveOS(catalog, tt.distro, tt.version)
+			id, err := resolveOS(catalog, tt.os)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
 			}

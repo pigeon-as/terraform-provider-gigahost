@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/datasourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -30,19 +29,17 @@ type osDataSource struct {
 }
 
 type osModel struct {
-	Distro    types.String `tfsdk:"distro"`
-	Version   types.String `tfsdk:"version"`
-	OsId      types.Int64  `tfsdk:"os_id"`
 	OsName    types.String `tfsdk:"os_name"`
-	DistId    types.Int64  `tfsdk:"dist_id"`
-	OsRelease types.String `tfsdk:"os_release"`
 	OsDist    types.String `tfsdk:"os_dist"`
+	OsID      types.Int64  `tfsdk:"os_id"`
+	DistID    types.Int64  `tfsdk:"dist_id"`
+	OsRelease types.String `tfsdk:"os_release"`
 	OsArch    types.String `tfsdk:"os_arch"`
-	OsMinram  types.Int64  `tfsdk:"os_minram"`
+	OsMinRAM  types.Int64  `tfsdk:"os_minram"`
 
 	OsCustomPartition types.Bool `tfsdk:"os_custom_partition"`
 	OsSingleDiskOnly  types.Bool `tfsdk:"os_single_disk_only"`
-	OsSupportRaid     types.Bool `tfsdk:"os_support_raid"`
+	OsSupportRAID     types.Bool `tfsdk:"os_support_raid"`
 	OsDedicatedOnly   types.Bool `tfsdk:"os_dedicated_only"`
 }
 
@@ -52,29 +49,24 @@ func (d *osDataSource) Metadata(_ context.Context, req datasource.MetadataReques
 
 func (d *osDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Looks up a single deployable OS image by distribution and version, returning the os_id used by the gigahost_server resource.",
+		MarkdownDescription: "Looks up a deployable OS image by name or release codename, returning the os_id used by the gigahost_server resource.",
 		Attributes: map[string]schema.Attribute{
-			"distro": schema.StringAttribute{
+			"os_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Filter by distribution name (e.g. \"Ubuntu\") or slug (e.g. \"ubuntu\").",
-				MarkdownDescription: "Filter by distribution name (e.g. \"Ubuntu\") or slug (e.g. \"ubuntu\").",
+				Description:         "Look up the image by its full name, e.g. \"Ubuntu 24.04 LTS\".",
+				MarkdownDescription: "Look up the image by its full name, e.g. \"Ubuntu 24.04 LTS\".",
 			},
-			"version": schema.StringAttribute{
+			"os_dist": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Filter by version — matches part of the OS name (e.g. \"24.04\") or the release codename (e.g. \"noble\").",
-				MarkdownDescription: "Filter by version — matches part of the OS name (e.g. \"24.04\") or the release codename (e.g. \"noble\").",
+				Description:         "Look up the image by its release codename, e.g. \"noble\".",
+				MarkdownDescription: "Look up the image by its release codename, e.g. \"noble\".",
 			},
 			"os_id": schema.Int64Attribute{
 				Computed:            true,
 				Description:         "OS image id, used as os_id when deploying a gigahost_server.",
 				MarkdownDescription: "OS image id, used as os_id when deploying a gigahost_server.",
-			},
-			"os_name": schema.StringAttribute{
-				Computed:            true,
-				Description:         "Full OS name, e.g. \"Ubuntu 24.04 LTS\".",
-				MarkdownDescription: "Full OS name, e.g. \"Ubuntu 24.04 LTS\".",
 			},
 			"dist_id": schema.Int64Attribute{
 				Computed:            true,
@@ -85,11 +77,6 @@ func (d *osDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, res
 				Computed:            true,
 				Description:         "Distribution family, e.g. \"ubuntu\".",
 				MarkdownDescription: "Distribution family, e.g. \"ubuntu\".",
-			},
-			"os_dist": schema.StringAttribute{
-				Computed:            true,
-				Description:         "Release codename, e.g. \"noble\".",
-				MarkdownDescription: "Release codename, e.g. \"noble\".",
 			},
 			"os_arch": schema.StringAttribute{
 				Computed:            true,
@@ -144,7 +131,7 @@ func (d *osDataSource) Configure(_ context.Context, req datasource.ConfigureRequ
 
 func (d *osDataSource) ConfigValidators(_ context.Context) []datasource.ConfigValidator {
 	return []datasource.ConfigValidator{
-		datasourcevalidator.AtLeastOneOf(path.MatchRoot("distro"), path.MatchRoot("version")),
+		datasourcevalidator.ExactlyOneOf(path.MatchRoot("os_name"), path.MatchRoot("os_dist")),
 	}
 }
 
@@ -161,69 +148,48 @@ func (d *osDataSource) Read(ctx context.Context, req datasource.ReadRequest, res
 		return
 	}
 
-	distro := config.Distro.ValueString()
-	version := config.Version.ValueString()
-	var matches []client.OSCatalogEntry
-	for _, e := range catalog {
-		if osMatches(e, distro, version) {
-			matches = append(matches, e)
-		}
+	lookup := config.OsName.ValueString()
+	if config.OsName.IsNull() {
+		lookup = config.OsDist.ValueString()
 	}
-
-	if len(matches) == 0 {
-		resp.Diagnostics.AddError(
-			"OS Not Found",
-			"No OS image matches the given filters. Use a distro (e.g. \"Ubuntu\") and/or version (e.g. \"24.04\").",
-		)
-		return
-	}
-	if len(matches) > 1 {
-		names := make([]string, len(matches))
-		for i, m := range matches {
-			names[i] = m.OS.OsName
-		}
-		resp.Diagnostics.AddError(
-			"Ambiguous OS",
-			fmt.Sprintf("%d OS images match the given filters (%s); narrow distro or version to exactly one.", len(matches), strings.Join(names, ", ")),
-		)
-		return
-	}
-
-	m := matches[0]
-
-	osID, err := strconv.ParseInt(m.OS.OsID, 10, 64)
+	entry, err := findOS(catalog, lookup)
 	if err != nil {
-		resp.Diagnostics.AddError("Unexpected Catalog Value", fmt.Sprintf("Could not parse os_id %q as an integer: %s", m.OS.OsID, err))
+		resp.Diagnostics.AddError("OS Not Found", err.Error())
 		return
 	}
-	distID, err := strconv.ParseInt(m.OS.DistID, 10, 64)
+	m := entry.OS
+
+	osID, err := strconv.ParseInt(m.OSID, 10, 64)
 	if err != nil {
-		resp.Diagnostics.AddError("Unexpected Catalog Value", fmt.Sprintf("Could not parse dist_id %q as an integer: %s", m.OS.DistID, err))
+		resp.Diagnostics.AddError("Unexpected Catalog Value", fmt.Sprintf("Could not parse os_id %q as an integer: %s", m.OSID, err))
+		return
+	}
+	distID, err := strconv.ParseInt(m.DistID, 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Unexpected Catalog Value", fmt.Sprintf("Could not parse dist_id %q as an integer: %s", m.DistID, err))
 		return
 	}
 
 	osMinRAM := types.Int64Null()
-	if m.OS.OsMinRAM != "" {
-		if v, err := strconv.ParseInt(m.OS.OsMinRAM, 10, 64); err == nil {
+	if m.OSMinRAM != "" {
+		if v, err := strconv.ParseInt(m.OSMinRAM, 10, 64); err == nil {
 			osMinRAM = types.Int64Value(v)
 		}
 	}
 
 	state := osModel{
-		Distro:    config.Distro,
-		Version:   config.Version,
-		OsId:      types.Int64Value(osID),
-		OsName:    types.StringValue(m.OS.OsName),
-		DistId:    types.Int64Value(distID),
-		OsRelease: types.StringValue(m.OS.OsRelease),
-		OsDist:    types.StringValue(m.OS.OsDist),
-		OsArch:    types.StringValue(m.OS.OsArch),
-		OsMinram:  osMinRAM,
+		OsName:    types.StringValue(m.OSName),
+		OsDist:    types.StringValue(m.OSDist),
+		OsID:      types.Int64Value(osID),
+		DistID:    types.Int64Value(distID),
+		OsRelease: types.StringValue(m.OSRelease),
+		OsArch:    types.StringValue(m.OSArch),
+		OsMinRAM:  osMinRAM,
 
-		OsCustomPartition: types.BoolValue(bool(m.OS.OsCustomPartition)),
-		OsSingleDiskOnly:  types.BoolValue(bool(m.OS.OsSingleDiskOnly)),
-		OsSupportRaid:     types.BoolValue(bool(m.OS.OsSupportRAID)),
-		OsDedicatedOnly:   types.BoolValue(bool(m.OS.OsDedicatedOnly)),
+		OsCustomPartition: types.BoolValue(bool(m.OSCustomPartition)),
+		OsSingleDiskOnly:  types.BoolValue(bool(m.OSSingleDiskOnly)),
+		OsSupportRAID:     types.BoolValue(bool(m.OSSupportRAID)),
+		OsDedicatedOnly:   types.BoolValue(bool(m.OSDedicatedOnly)),
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

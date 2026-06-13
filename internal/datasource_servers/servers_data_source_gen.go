@@ -165,6 +165,11 @@ func ServersDataSourceSchema(ctx context.Context) schema.Schema {
 							Description:         "Number of CPU cores.",
 							MarkdownDescription: "Number of CPU cores.",
 						},
+						"srv_feature_backups": schema.BoolAttribute{
+							Computed:            true,
+							Description:         "Whether daily backups are enabled.",
+							MarkdownDescription: "Whether daily backups are enabled.",
+						},
 						"srv_hostname": schema.StringAttribute{
 							Computed:            true,
 							Description:         "Server hostname; not populated by the API.",
@@ -396,6 +401,24 @@ func (t ServersType) ValueFromObject(ctx context.Context, in basetypes.ObjectVal
 			fmt.Sprintf(`srv_cores expected to be basetypes.Int64Value, was: %T`, srvCoresAttribute))
 	}
 
+	srvFeatureBackupsAttribute, ok := attributes["srv_feature_backups"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`srv_feature_backups is missing from object`)
+
+		return nil, diags
+	}
+
+	srvFeatureBackupsVal, ok := srvFeatureBackupsAttribute.(basetypes.BoolValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`srv_feature_backups expected to be basetypes.BoolValue, was: %T`, srvFeatureBackupsAttribute))
+	}
+
 	srvHostnameAttribute, ok := attributes["srv_hostname"]
 
 	if !ok {
@@ -617,26 +640,27 @@ func (t ServersType) ValueFromObject(ctx context.Context, in basetypes.ObjectVal
 	}
 
 	return ServersValue{
-		Datacenter:       datacenterVal,
-		Ips:              ipsVal,
-		Order:            orderVal,
-		Os:               osVal,
-		OsId:             osIdVal,
-		ProductId:        productIdVal,
-		SrvCores:         srvCoresVal,
-		SrvHostname:      srvHostnameVal,
-		SrvId:            srvIdVal,
-		SrvLocation:      srvLocationVal,
-		SrvName:          srvNameVal,
-		SrvPrimaryIp:     srvPrimaryIpVal,
-		SrvRam:           srvRamVal,
-		SrvStatus:        srvStatusVal,
-		SrvStatusInstall: srvStatusInstallVal,
-		SrvStatusRescue:  srvStatusRescueVal,
-		SrvSuspended:     srvSuspendedVal,
-		SrvType:          srvTypeVal,
-		SrvVpsType:       srvVpsTypeVal,
-		state:            attr.ValueStateKnown,
+		Datacenter:        datacenterVal,
+		Ips:               ipsVal,
+		Order:             orderVal,
+		Os:                osVal,
+		OsId:              osIdVal,
+		ProductId:         productIdVal,
+		SrvCores:          srvCoresVal,
+		SrvFeatureBackups: srvFeatureBackupsVal,
+		SrvHostname:       srvHostnameVal,
+		SrvId:             srvIdVal,
+		SrvLocation:       srvLocationVal,
+		SrvName:           srvNameVal,
+		SrvPrimaryIp:      srvPrimaryIpVal,
+		SrvRam:            srvRamVal,
+		SrvStatus:         srvStatusVal,
+		SrvStatusInstall:  srvStatusInstallVal,
+		SrvStatusRescue:   srvStatusRescueVal,
+		SrvSuspended:      srvSuspendedVal,
+		SrvType:           srvTypeVal,
+		SrvVpsType:        srvVpsTypeVal,
+		state:             attr.ValueStateKnown,
 	}, diags
 }
 
@@ -829,6 +853,24 @@ func NewServersValue(attributeTypes map[string]attr.Type, attributes map[string]
 			fmt.Sprintf(`srv_cores expected to be basetypes.Int64Value, was: %T`, srvCoresAttribute))
 	}
 
+	srvFeatureBackupsAttribute, ok := attributes["srv_feature_backups"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`srv_feature_backups is missing from object`)
+
+		return NewServersValueUnknown(), diags
+	}
+
+	srvFeatureBackupsVal, ok := srvFeatureBackupsAttribute.(basetypes.BoolValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`srv_feature_backups expected to be basetypes.BoolValue, was: %T`, srvFeatureBackupsAttribute))
+	}
+
 	srvHostnameAttribute, ok := attributes["srv_hostname"]
 
 	if !ok {
@@ -1050,26 +1092,27 @@ func NewServersValue(attributeTypes map[string]attr.Type, attributes map[string]
 	}
 
 	return ServersValue{
-		Datacenter:       datacenterVal,
-		Ips:              ipsVal,
-		Order:            orderVal,
-		Os:               osVal,
-		OsId:             osIdVal,
-		ProductId:        productIdVal,
-		SrvCores:         srvCoresVal,
-		SrvHostname:      srvHostnameVal,
-		SrvId:            srvIdVal,
-		SrvLocation:      srvLocationVal,
-		SrvName:          srvNameVal,
-		SrvPrimaryIp:     srvPrimaryIpVal,
-		SrvRam:           srvRamVal,
-		SrvStatus:        srvStatusVal,
-		SrvStatusInstall: srvStatusInstallVal,
-		SrvStatusRescue:  srvStatusRescueVal,
-		SrvSuspended:     srvSuspendedVal,
-		SrvType:          srvTypeVal,
-		SrvVpsType:       srvVpsTypeVal,
-		state:            attr.ValueStateKnown,
+		Datacenter:        datacenterVal,
+		Ips:               ipsVal,
+		Order:             orderVal,
+		Os:                osVal,
+		OsId:              osIdVal,
+		ProductId:         productIdVal,
+		SrvCores:          srvCoresVal,
+		SrvFeatureBackups: srvFeatureBackupsVal,
+		SrvHostname:       srvHostnameVal,
+		SrvId:             srvIdVal,
+		SrvLocation:       srvLocationVal,
+		SrvName:           srvNameVal,
+		SrvPrimaryIp:      srvPrimaryIpVal,
+		SrvRam:            srvRamVal,
+		SrvStatus:         srvStatusVal,
+		SrvStatusInstall:  srvStatusInstallVal,
+		SrvStatusRescue:   srvStatusRescueVal,
+		SrvSuspended:      srvSuspendedVal,
+		SrvType:           srvTypeVal,
+		SrvVpsType:        srvVpsTypeVal,
+		state:             attr.ValueStateKnown,
 	}, diags
 }
 
@@ -1141,30 +1184,31 @@ func (t ServersType) ValueType(ctx context.Context) attr.Value {
 var _ basetypes.ObjectValuable = ServersValue{}
 
 type ServersValue struct {
-	Datacenter       basetypes.ObjectValue `tfsdk:"datacenter"`
-	Ips              basetypes.ListValue   `tfsdk:"ips"`
-	Order            basetypes.ObjectValue `tfsdk:"order"`
-	Os               basetypes.ObjectValue `tfsdk:"os"`
-	OsId             basetypes.StringValue `tfsdk:"os_id"`
-	ProductId        basetypes.StringValue `tfsdk:"product_id"`
-	SrvCores         basetypes.Int64Value  `tfsdk:"srv_cores"`
-	SrvHostname      basetypes.StringValue `tfsdk:"srv_hostname"`
-	SrvId            basetypes.StringValue `tfsdk:"srv_id"`
-	SrvLocation      basetypes.StringValue `tfsdk:"srv_location"`
-	SrvName          basetypes.StringValue `tfsdk:"srv_name"`
-	SrvPrimaryIp     basetypes.StringValue `tfsdk:"srv_primary_ip"`
-	SrvRam           basetypes.Int64Value  `tfsdk:"srv_ram"`
-	SrvStatus        basetypes.BoolValue   `tfsdk:"srv_status"`
-	SrvStatusInstall basetypes.BoolValue   `tfsdk:"srv_status_install"`
-	SrvStatusRescue  basetypes.BoolValue   `tfsdk:"srv_status_rescue"`
-	SrvSuspended     basetypes.BoolValue   `tfsdk:"srv_suspended"`
-	SrvType          basetypes.StringValue `tfsdk:"srv_type"`
-	SrvVpsType       basetypes.StringValue `tfsdk:"srv_vps_type"`
-	state            attr.ValueState
+	Datacenter        basetypes.ObjectValue `tfsdk:"datacenter"`
+	Ips               basetypes.ListValue   `tfsdk:"ips"`
+	Order             basetypes.ObjectValue `tfsdk:"order"`
+	Os                basetypes.ObjectValue `tfsdk:"os"`
+	OsId              basetypes.StringValue `tfsdk:"os_id"`
+	ProductId         basetypes.StringValue `tfsdk:"product_id"`
+	SrvCores          basetypes.Int64Value  `tfsdk:"srv_cores"`
+	SrvFeatureBackups basetypes.BoolValue   `tfsdk:"srv_feature_backups"`
+	SrvHostname       basetypes.StringValue `tfsdk:"srv_hostname"`
+	SrvId             basetypes.StringValue `tfsdk:"srv_id"`
+	SrvLocation       basetypes.StringValue `tfsdk:"srv_location"`
+	SrvName           basetypes.StringValue `tfsdk:"srv_name"`
+	SrvPrimaryIp      basetypes.StringValue `tfsdk:"srv_primary_ip"`
+	SrvRam            basetypes.Int64Value  `tfsdk:"srv_ram"`
+	SrvStatus         basetypes.BoolValue   `tfsdk:"srv_status"`
+	SrvStatusInstall  basetypes.BoolValue   `tfsdk:"srv_status_install"`
+	SrvStatusRescue   basetypes.BoolValue   `tfsdk:"srv_status_rescue"`
+	SrvSuspended      basetypes.BoolValue   `tfsdk:"srv_suspended"`
+	SrvType           basetypes.StringValue `tfsdk:"srv_type"`
+	SrvVpsType        basetypes.StringValue `tfsdk:"srv_vps_type"`
+	state             attr.ValueState
 }
 
 func (v ServersValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	attrTypes := make(map[string]tftypes.Type, 19)
+	attrTypes := make(map[string]tftypes.Type, 20)
 
 	var val tftypes.Value
 	var err error
@@ -1184,6 +1228,7 @@ func (v ServersValue) ToTerraformValue(ctx context.Context) (tftypes.Value, erro
 	attrTypes["os_id"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["product_id"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["srv_cores"] = basetypes.Int64Type{}.TerraformType(ctx)
+	attrTypes["srv_feature_backups"] = basetypes.BoolType{}.TerraformType(ctx)
 	attrTypes["srv_hostname"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["srv_id"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["srv_location"] = basetypes.StringType{}.TerraformType(ctx)
@@ -1201,7 +1246,7 @@ func (v ServersValue) ToTerraformValue(ctx context.Context) (tftypes.Value, erro
 
 	switch v.state {
 	case attr.ValueStateKnown:
-		vals := make(map[string]tftypes.Value, 19)
+		vals := make(map[string]tftypes.Value, 20)
 
 		val, err = v.Datacenter.ToTerraformValue(ctx)
 
@@ -1258,6 +1303,14 @@ func (v ServersValue) ToTerraformValue(ctx context.Context) (tftypes.Value, erro
 		}
 
 		vals["srv_cores"] = val
+
+		val, err = v.SrvFeatureBackups.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["srv_feature_backups"] = val
 
 		val, err = v.SrvHostname.ToTerraformValue(ctx)
 
@@ -1489,21 +1542,22 @@ func (v ServersValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue,
 		"os": basetypes.ObjectType{
 			AttrTypes: OsValue{}.AttributeTypes(ctx),
 		},
-		"os_id":              basetypes.StringType{},
-		"product_id":         basetypes.StringType{},
-		"srv_cores":          basetypes.Int64Type{},
-		"srv_hostname":       basetypes.StringType{},
-		"srv_id":             basetypes.StringType{},
-		"srv_location":       basetypes.StringType{},
-		"srv_name":           basetypes.StringType{},
-		"srv_primary_ip":     basetypes.StringType{},
-		"srv_ram":            basetypes.Int64Type{},
-		"srv_status":         basetypes.BoolType{},
-		"srv_status_install": basetypes.BoolType{},
-		"srv_status_rescue":  basetypes.BoolType{},
-		"srv_suspended":      basetypes.BoolType{},
-		"srv_type":           basetypes.StringType{},
-		"srv_vps_type":       basetypes.StringType{},
+		"os_id":               basetypes.StringType{},
+		"product_id":          basetypes.StringType{},
+		"srv_cores":           basetypes.Int64Type{},
+		"srv_feature_backups": basetypes.BoolType{},
+		"srv_hostname":        basetypes.StringType{},
+		"srv_id":              basetypes.StringType{},
+		"srv_location":        basetypes.StringType{},
+		"srv_name":            basetypes.StringType{},
+		"srv_primary_ip":      basetypes.StringType{},
+		"srv_ram":             basetypes.Int64Type{},
+		"srv_status":          basetypes.BoolType{},
+		"srv_status_install":  basetypes.BoolType{},
+		"srv_status_rescue":   basetypes.BoolType{},
+		"srv_suspended":       basetypes.BoolType{},
+		"srv_type":            basetypes.StringType{},
+		"srv_vps_type":        basetypes.StringType{},
 	}
 
 	if v.IsNull() {
@@ -1517,25 +1571,26 @@ func (v ServersValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue,
 	objVal, diags := types.ObjectValue(
 		attributeTypes,
 		map[string]attr.Value{
-			"datacenter":         datacenter,
-			"ips":                ips,
-			"order":              order,
-			"os":                 os,
-			"os_id":              v.OsId,
-			"product_id":         v.ProductId,
-			"srv_cores":          v.SrvCores,
-			"srv_hostname":       v.SrvHostname,
-			"srv_id":             v.SrvId,
-			"srv_location":       v.SrvLocation,
-			"srv_name":           v.SrvName,
-			"srv_primary_ip":     v.SrvPrimaryIp,
-			"srv_ram":            v.SrvRam,
-			"srv_status":         v.SrvStatus,
-			"srv_status_install": v.SrvStatusInstall,
-			"srv_status_rescue":  v.SrvStatusRescue,
-			"srv_suspended":      v.SrvSuspended,
-			"srv_type":           v.SrvType,
-			"srv_vps_type":       v.SrvVpsType,
+			"datacenter":          datacenter,
+			"ips":                 ips,
+			"order":               order,
+			"os":                  os,
+			"os_id":               v.OsId,
+			"product_id":          v.ProductId,
+			"srv_cores":           v.SrvCores,
+			"srv_feature_backups": v.SrvFeatureBackups,
+			"srv_hostname":        v.SrvHostname,
+			"srv_id":              v.SrvId,
+			"srv_location":        v.SrvLocation,
+			"srv_name":            v.SrvName,
+			"srv_primary_ip":      v.SrvPrimaryIp,
+			"srv_ram":             v.SrvRam,
+			"srv_status":          v.SrvStatus,
+			"srv_status_install":  v.SrvStatusInstall,
+			"srv_status_rescue":   v.SrvStatusRescue,
+			"srv_suspended":       v.SrvSuspended,
+			"srv_type":            v.SrvType,
+			"srv_vps_type":        v.SrvVpsType,
 		})
 
 	return objVal, diags
@@ -1581,6 +1636,10 @@ func (v ServersValue) Equal(o attr.Value) bool {
 	}
 
 	if !v.SrvCores.Equal(other.SrvCores) {
+		return false
+	}
+
+	if !v.SrvFeatureBackups.Equal(other.SrvFeatureBackups) {
 		return false
 	}
 
@@ -1657,21 +1716,22 @@ func (v ServersValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 		"os": basetypes.ObjectType{
 			AttrTypes: OsValue{}.AttributeTypes(ctx),
 		},
-		"os_id":              basetypes.StringType{},
-		"product_id":         basetypes.StringType{},
-		"srv_cores":          basetypes.Int64Type{},
-		"srv_hostname":       basetypes.StringType{},
-		"srv_id":             basetypes.StringType{},
-		"srv_location":       basetypes.StringType{},
-		"srv_name":           basetypes.StringType{},
-		"srv_primary_ip":     basetypes.StringType{},
-		"srv_ram":            basetypes.Int64Type{},
-		"srv_status":         basetypes.BoolType{},
-		"srv_status_install": basetypes.BoolType{},
-		"srv_status_rescue":  basetypes.BoolType{},
-		"srv_suspended":      basetypes.BoolType{},
-		"srv_type":           basetypes.StringType{},
-		"srv_vps_type":       basetypes.StringType{},
+		"os_id":               basetypes.StringType{},
+		"product_id":          basetypes.StringType{},
+		"srv_cores":           basetypes.Int64Type{},
+		"srv_feature_backups": basetypes.BoolType{},
+		"srv_hostname":        basetypes.StringType{},
+		"srv_id":              basetypes.StringType{},
+		"srv_location":        basetypes.StringType{},
+		"srv_name":            basetypes.StringType{},
+		"srv_primary_ip":      basetypes.StringType{},
+		"srv_ram":             basetypes.Int64Type{},
+		"srv_status":          basetypes.BoolType{},
+		"srv_status_install":  basetypes.BoolType{},
+		"srv_status_rescue":   basetypes.BoolType{},
+		"srv_suspended":       basetypes.BoolType{},
+		"srv_type":            basetypes.StringType{},
+		"srv_vps_type":        basetypes.StringType{},
 	}
 }
 

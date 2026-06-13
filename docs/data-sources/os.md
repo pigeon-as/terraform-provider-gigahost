@@ -3,19 +3,18 @@
 page_title: "gigahost_os Data Source - gigahost"
 subcategory: ""
 description: |-
-  Looks up a single deployable OS image by distribution and version, returning the os_id used by the gigahost_server resource.
+  Looks up a deployable OS image by name or release codename, returning the os_id used by the gigahost_server resource.
 ---
 
 # gigahost_os (Data Source)
 
-Looks up a single deployable OS image by distribution and version, returning the os_id used by the gigahost_server resource.
+Looks up a deployable OS image by name or release codename, returning the os_id used by the gigahost_server resource.
 
 ## Example Usage
 
 ```terraform
 data "gigahost_os" "example" {
-  distro  = "Ubuntu"
-  version = "24.04"
+  os_name = "Ubuntu 24.04 LTS"
 }
 ```
 
@@ -24,8 +23,8 @@ data "gigahost_os" "example" {
 
 ### Optional
 
-- `distro` (String) Filter by distribution name (e.g. "Ubuntu") or slug (e.g. "ubuntu").
-- `version` (String) Filter by version — matches part of the OS name (e.g. "24.04") or the release codename (e.g. "noble").
+- `os_dist` (String) Look up the image by its release codename, e.g. "noble".
+- `os_name` (String) Look up the image by its full name, e.g. "Ubuntu 24.04 LTS".
 
 ### Read-Only
 
@@ -33,10 +32,8 @@ data "gigahost_os" "example" {
 - `os_arch` (String) Architecture, e.g. "amd64".
 - `os_custom_partition` (Boolean) Whether the image supports custom partitioning.
 - `os_dedicated_only` (Boolean) Whether the image is only deployable on dedicated servers.
-- `os_dist` (String) Release codename, e.g. "noble".
 - `os_id` (Number) OS image id, used as os_id when deploying a gigahost_server.
 - `os_minram` (Number) Minimum memory required, in GB.
-- `os_name` (String) Full OS name, e.g. "Ubuntu 24.04 LTS".
 - `os_release` (String) Distribution family, e.g. "ubuntu".
 - `os_single_disk_only` (Boolean) Whether the image must be installed on a single disk.
 - `os_support_raid` (Boolean) Whether the image supports RAID.

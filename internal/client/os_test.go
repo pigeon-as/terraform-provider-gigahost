@@ -31,19 +31,19 @@ func TestGetOSCatalog(t *testing.T) {
 
 	var found bool
 	for _, e := range catalog {
-		if e.OS.OsID == "102" {
+		if e.OS.OSID == "102" {
 			found = true
-			if e.OS.OsName != "Ubuntu 24.04 LTS" {
-				t.Errorf("OsName = %q, want %q", e.OS.OsName, "Ubuntu 24.04 LTS")
+			if e.OS.OSName != "Ubuntu 24.04 LTS" {
+				t.Errorf("OSName = %q, want %q", e.OS.OSName, "Ubuntu 24.04 LTS")
 			}
 			if e.Distro.DistName != "Ubuntu" {
 				t.Errorf("DistName = %q, want %q", e.Distro.DistName, "Ubuntu")
 			}
-			if !e.OS.OsSupportRAID {
-				t.Errorf("OsSupportRAID = false, want true")
+			if !e.OS.OSSupportRAID {
+				t.Errorf("OSSupportRAID = false, want true")
 			}
-			if e.OS.OsDedicatedOnly {
-				t.Errorf("OsDedicatedOnly = true, want false")
+			if e.OS.OSDedicatedOnly {
+				t.Errorf("OSDedicatedOnly = true, want false")
 			}
 		}
 	}

@@ -14,9 +14,6 @@ import (
 // Generate Terraform Plugin Framework data source schemas from the spec.
 //go:generate go run github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework generate data-sources --input ../codegen/provider-code-spec.json --output ../internal
 
-// Generate Terraform Plugin Framework resource schemas from the spec.
-//go:generate go run github.com/hashicorp/terraform-plugin-codegen-framework/cmd/tfplugingen-framework generate resources --input ../codegen/provider-code-spec.json --output ../internal
-
 // Format the example Terraform configurations used in the docs.
 //go:generate terraform fmt -recursive ../examples/
 

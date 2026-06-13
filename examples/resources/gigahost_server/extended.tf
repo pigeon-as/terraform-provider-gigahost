@@ -7,9 +7,8 @@ resource "gigahost_ssh_key" "example" {
 
 resource "gigahost_server" "example" {
   product_name = "Intro - Intel Core i3 4GB"
-  region       = "Sandefjord"
-  os_distro    = "Ubuntu"
-  os_version   = "24.04"
+  region_name  = "Sandefjord"
+  os_name      = "Ubuntu 24.04 LTS"
   backups      = true
   ssh_keys     = [gigahost_ssh_key.example.key_id]
 

@@ -33,35 +33,19 @@ func newWaitTestResource(t *testing.T, handler http.HandlerFunc) *serverResource
 	return &serverResource{client: c}
 }
 
-func waitTestHandler(statusBody, listBody, byIDBody string) http.HandlerFunc {
+func deployStatusHandler(statusBody string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasPrefix(r.URL.Path, "/deploy/status"):
+		if strings.HasPrefix(r.URL.Path, "/deploy/status") {
 			_, _ = w.Write([]byte(`{"meta":{},"data":` + statusBody + `}`))
-		case r.URL.Path == "/servers":
-			_, _ = w.Write([]byte(`{"meta":{},"data":` + listBody + `}`))
-		case strings.HasPrefix(r.URL.Path, "/servers/"):
-			if byIDBody == "" {
-				w.WriteHeader(http.StatusNotFound)
-				_, _ = w.Write([]byte(`{"meta":{"status":404,"message":"404 Not Found"},"data":[]}`))
-				return
-			}
-			_, _ = w.Write([]byte(`{"meta":{},"data":` + byIDBody + `}`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
+			return
 		}
+		w.WriteHeader(http.StatusNotFound)
 	}
 }
 
-const (
-	testServerInstalling = `{"srv_id":"12345","srv_status":"1","srv_status_install":"1","srv_primary_ip":"185.199.2.3","order":{"order_id":"777","order_status":"active"}}`
-	testServerSettled    = `{"srv_id":"12345","srv_status":"1","srv_status_install":"0","srv_primary_ip":"185.199.2.3","ips":[{"ip_id":"2","ip_address":"2a01:db8::1","ip_v4v6":"ipv6"}],"order":{"order_id":"777","order_status":"active"}}`
-)
-
 func TestWaitForServerReady(t *testing.T) {
-	r := newWaitTestResource(t, waitTestHandler(
+	r := newWaitTestResource(t, deployStatusHandler(
 		`{"servers":[{"order_id":"777","srv_id":"12345","ip":"185.199.2.3","status":"ready","password":"hunter2"}],"all_ready":"1"}`,
-		`[]`, "",
 	))
 
 	server, err := r.waitForServer(context.Background(), 777)
@@ -74,9 +58,8 @@ func TestWaitForServerReady(t *testing.T) {
 }
 
 func TestWaitForServerTerminalStatusReturnsServer(t *testing.T) {
-	r := newWaitTestResource(t, waitTestHandler(
+	r := newWaitTestResource(t, deployStatusHandler(
 		`{"servers":[{"order_id":"777","srv_id":"12345","status":"failed"}],"all_ready":"0"}`,
-		`[]`, "",
 	))
 
 	server, err := r.waitForServer(context.Background(), 777)
@@ -89,7 +72,7 @@ func TestWaitForServerTerminalStatusReturnsServer(t *testing.T) {
 }
 
 func TestWaitForServerTimeoutWithoutServer(t *testing.T) {
-	r := newWaitTestResource(t, waitTestHandler(`{"servers":[],"all_ready":"0"}`, `[]`, ""))
+	r := newWaitTestResource(t, deployStatusHandler(`{"servers":[],"all_ready":"0"}`))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
@@ -103,45 +86,37 @@ func TestWaitForServerTimeoutWithoutServer(t *testing.T) {
 	}
 }
 
-func TestWaitForServerListFallbackReady(t *testing.T) {
-	r := newWaitTestResource(t, waitTestHandler(
-		`{"servers":[],"all_ready":"0"}`,
-		`[`+testServerSettled+`]`, "",
-	))
+func TestWaitForServerKeepsPasswordAcrossSightings(t *testing.T) {
+	var mu sync.Mutex
+	calls := 0
+	r := newWaitTestResource(t, func(w http.ResponseWriter, req *http.Request) {
+		if !strings.HasPrefix(req.URL.Path, "/deploy/status") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		mu.Lock()
+		calls++
+		n := calls
+		mu.Unlock()
+		if n == 1 {
+			_, _ = w.Write([]byte(`{"meta":{},"data":{"servers":[{"order_id":"777","srv_id":"12345","status":"installing","password":"hunter2"}],"all_ready":"0"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"meta":{},"data":{"servers":[{"order_id":"777","srv_id":"12345","ip":"185.199.2.3","status":"ready","password":""}],"all_ready":"1"}}`))
+	})
 
 	server, err := r.waitForServer(context.Background(), 777)
 	if err != nil {
 		t.Fatalf("waitForServer: %v", err)
 	}
-	if server == nil || server.SrvID != "12345" || server.IPv6 != "2a01:db8::1" {
-		t.Fatalf("server = %+v, want srv_id 12345 adopted from the server list", server)
-	}
-	if server.Password != "" {
-		t.Fatalf("password = %q, want empty on the list path", server.Password)
+	if server == nil || server.Password != "hunter2" {
+		t.Fatalf("server = %+v, want the install-time password kept at ready", server)
 	}
 }
 
-func TestWaitForServerByIDCompletesWhenSettled(t *testing.T) {
-	r := newWaitTestResource(t, waitTestHandler(
-		`{"servers":[],"all_ready":"0"}`,
-		`[`+testServerInstalling+`]`,
-		`[`+testServerSettled+`]`,
-	))
-
-	server, err := r.waitForServer(context.Background(), 777)
-	if err != nil {
-		t.Fatalf("waitForServer: %v", err)
-	}
-	if server == nil || server.SrvID != "12345" || server.IPv6 != "2a01:db8::1" {
-		t.Fatalf("server = %+v, want completion via the direct read", server)
-	}
-}
-
-func TestWaitForServerListFallbackInstallingKeepsWaiting(t *testing.T) {
-	r := newWaitTestResource(t, waitTestHandler(
-		`{"servers":[],"all_ready":"0"}`,
-		`[`+testServerInstalling+`]`,
-		`[`+testServerInstalling+`]`,
+func TestWaitForServerReadyWithoutIDKeepsWaiting(t *testing.T) {
+	r := newWaitTestResource(t, deployStatusHandler(
+		`{"servers":[{"order_id":"777","srv_id":0,"ip":"185.199.2.3","status":"ready","password":"secret"}],"all_ready":"1"}`,
 	))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -149,96 +124,9 @@ func TestWaitForServerListFallbackInstallingKeepsWaiting(t *testing.T) {
 
 	server, err := r.waitForServer(ctx, 777)
 	if err == nil || !strings.Contains(err.Error(), "timed out") {
-		t.Fatalf("err = %v, want timeout error while installing", err)
+		t.Fatalf("err = %v, want a timeout: a ready status without an id is not usable", err)
 	}
-	if server == nil || server.SrvID != "12345" {
-		t.Fatalf("server = %+v, want the installing server's id preserved for the error path", server)
-	}
-}
-
-func TestWaitForServerDisappearedFails(t *testing.T) {
-	var mu sync.Mutex
-	listCalls := 0
-	r := newWaitTestResource(t, func(w http.ResponseWriter, req *http.Request) {
-		switch {
-		case strings.HasPrefix(req.URL.Path, "/deploy/status"):
-			_, _ = w.Write([]byte(`{"meta":{},"data":{"servers":[],"all_ready":"0"}}`))
-		case req.URL.Path == "/servers":
-			mu.Lock()
-			listCalls++
-			n := listCalls
-			mu.Unlock()
-			if n == 1 {
-				_, _ = w.Write([]byte(`{"meta":{},"data":[` + testServerInstalling + `]}`))
-				return
-			}
-			_, _ = w.Write([]byte(`{"meta":{},"data":[]}`))
-		case strings.HasPrefix(req.URL.Path, "/servers/"):
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"meta":{"status":404,"message":"404 Not Found"},"data":[]}`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	})
-
-	server, err := r.waitForServer(context.Background(), 777)
-	if err == nil || !strings.Contains(err.Error(), "disappeared") || !strings.Contains(err.Error(), "12345") {
-		t.Fatalf("err = %v, want disappeared error naming the server id", err)
-	}
-	if server == nil || server.SrvID != "12345" {
-		t.Fatalf("server = %+v, want the vanished server's id preserved for cleanup", server)
-	}
-}
-
-func TestWaitForServerCancelledOrderFails(t *testing.T) {
-	r := newWaitTestResource(t, waitTestHandler(
-		`{"servers":[],"all_ready":"0"}`,
-		`[`+testServerInstalling+`]`,
-		`[{"srv_id":"12345","srv_status":"0","srv_status_install":"0","order":{"order_id":"777","order_status":"cancelled"}}]`,
-	))
-
-	server, err := r.waitForServer(context.Background(), 777)
-	if err == nil || !strings.Contains(err.Error(), "disappeared") {
-		t.Fatalf("err = %v, want the wait to fail for a cancelled order", err)
-	}
-	if server == nil || server.SrvID != "12345" {
-		t.Fatalf("server = %+v, want the server id preserved for cleanup", server)
-	}
-}
-
-func TestWaitForServerUnauthorizedDoesNotCountGone(t *testing.T) {
-	var mu sync.Mutex
-	listCalls := 0
-	r := newWaitTestResource(t, func(w http.ResponseWriter, req *http.Request) {
-		switch {
-		case strings.HasPrefix(req.URL.Path, "/deploy/status"):
-			_, _ = w.Write([]byte(`{"meta":{},"data":{"servers":[],"all_ready":"0"}}`))
-		case req.URL.Path == "/servers":
-			mu.Lock()
-			listCalls++
-			n := listCalls
-			mu.Unlock()
-			if n == 1 {
-				_, _ = w.Write([]byte(`{"meta":{},"data":[` + testServerInstalling + `]}`))
-				return
-			}
-			_, _ = w.Write([]byte(`{"meta":{},"data":[]}`))
-		case strings.HasPrefix(req.URL.Path, "/servers/"):
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"meta":{"status":401,"message":"401 Unauthorized"},"data":[]}`))
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
-	defer cancel()
-
-	server, err := r.waitForServer(ctx, 777)
-	if err == nil || !strings.Contains(err.Error(), "timed out") {
-		t.Fatalf("err = %v, want a timeout rather than a disappeared verdict", err)
-	}
-	if server == nil || server.SrvID != "12345" {
-		t.Fatalf("server = %+v, want the server id preserved", server)
+	if server == nil || server.SrvID != "" || server.IP != "185.199.2.3" {
+		t.Fatalf("server = %+v, want the partial sighting preserved with an empty id", server)
 	}
 }

@@ -43,6 +43,33 @@ func TestGetServer(t *testing.T) {
 	}
 }
 
+func TestGetServerInvalidID(t *testing.T) {
+	calls := 0
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusOK)
+	})
+
+	for _, id := range []string{"", "../account", "abc"} {
+		if _, err := c.GetServer(context.Background(), id); err == nil {
+			t.Fatalf("id %q: expected an error", id)
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("calls = %d, want no requests for invalid ids", calls)
+	}
+}
+
+func TestGetServerMultipleResults(t *testing.T) {
+	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"meta":{},"data":[{"srv_id":"1"},{"srv_id":"2"}]}`))
+	})
+
+	if _, err := c.GetServer(context.Background(), "1"); err == nil {
+		t.Fatal("expected an error for a multi-element response")
+	}
+}
+
 func TestGetServerNotFound(t *testing.T) {
 	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -61,21 +88,10 @@ func TestGetServerForbidden(t *testing.T) {
 		_, _ = w.Write([]byte(`{"meta":{"status":403,"message":"You do not have permission for this operation."},"data":[]}`))
 	})
 
+	var apiErr *Error
 	_, err := c.GetServer(context.Background(), "17617")
-	if !errors.Is(err, ErrForbidden) {
-		t.Fatalf("err = %v, want ErrForbidden", err)
-	}
-}
-
-func TestGetServerUnauthorized(t *testing.T) {
-	c := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"meta":{"status":401,"message":"401 Unauthorized"},"data":[]}`))
-	})
-
-	_, err := c.GetServer(context.Background(), "99999999")
-	if !errors.Is(err, ErrUnauthorized) {
-		t.Fatalf("err = %v, want ErrUnauthorized", err)
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusForbidden {
+		t.Fatalf("err = %v, want a 403 *Error", err)
 	}
 }
 

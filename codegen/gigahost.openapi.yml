@@ -911,6 +911,9 @@ components:
           description: IP addresses assigned to the server.
           items:
             $ref: '#/components/schemas/ServerIP'
+        srv_feature_backups:
+          type: boolean
+          description: Whether daily backups are enabled.
         order:
           $ref: '#/components/schemas/ServerOrder'
         datacenter:

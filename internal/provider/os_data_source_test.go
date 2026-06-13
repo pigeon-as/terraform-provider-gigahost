@@ -12,14 +12,18 @@ func TestAccOSDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: `data "gigahost_os" "test" {
-  distro  = "Ubuntu"
-  version = "24.04"
+				Config: `data "gigahost_os" "by_name" {
+  os_name = "Ubuntu 24.04 LTS"
+}
+
+data "gigahost_os" "by_codename" {
+  os_dist = "noble"
 }`,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("data.gigahost_os.test", "os_id"),
-					resource.TestCheckResourceAttr("data.gigahost_os.test", "os_name", "Ubuntu 24.04 LTS"),
-					resource.TestCheckResourceAttr("data.gigahost_os.test", "os_dist", "noble"),
+					resource.TestCheckResourceAttrSet("data.gigahost_os.by_name", "os_id"),
+					resource.TestCheckResourceAttr("data.gigahost_os.by_name", "os_dist", "noble"),
+					resource.TestCheckResourceAttrSet("data.gigahost_os.by_codename", "os_id"),
+					resource.TestCheckResourceAttr("data.gigahost_os.by_codename", "os_name", "Ubuntu 24.04 LTS"),
 				),
 			},
 		},

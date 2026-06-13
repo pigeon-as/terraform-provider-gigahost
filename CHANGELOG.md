@@ -1,3 +1,23 @@
+## 0.5.0 (June 13, 2026)
+
+BREAKING CHANGES:
+
+* `gigahost_server` - every attribute is renamed to its exact Gigahost API field, removing provider-invented names so the resource mirrors the API (and the `gigahost_server` data source). Inputs: `os_distro`/`os_version` → `os_name` and `os_dist` (the catalog name or release codename, e.g. `"Ubuntu 24.04 LTS"` or `"noble"`; provide exactly one), each matched exactly; `region` → `region_name`; `name` → `srv_name`. Computed: `server_id` → `srv_id`, `ipv4` → `srv_primary_ip`, `root_password` → `password`, and `cores`/`ram`/`location`/`type`/`vps_type`/`running`/`installing`/`suspended` → `srv_cores`/`srv_ram`/`srv_location`/`srv_type`/`srv_vps_type`/`srv_status`/`srv_status_install`/`srv_suspended`. The top-level `ipv6` attribute is removed — read IPv6 from `ips` (the entry whose `ip_v4v6` is `"ipv6"`).
+* `gigahost_os` data source - the `distro` and `version` filters are replaced by `os_name` and `os_dist` (provide exactly one), each matched exactly against the catalog.
+
+ENHANCEMENTS:
+
+* `gigahost_server` - `terraform plan` no longer makes catalog or OS API calls; product, region and OS names are resolved during apply, and changing the OS forces replacement directly. Plans now work without network access to the API.
+* `gigahost_server` - the deploy wait now polls only the deploy status endpoint, following the standard provider pattern: a deploy that never reaches a final status (including one the status API stops reporting) surfaces as a create timeout, which the `timeouts.create` setting controls.
+* `gigahost_server` - an absent primary IP is stored as null.
+
+BUG FIXES:
+
+* `gigahost_server` - removing `srv_name` from the configuration no longer renames the server to an empty string.
+* `gigahost_server` - the root password reported while a server installs is kept when later deploy-status polls no longer carry it.
+* `gigahost_server` - the client rejects empty or non-numeric server ids, which previously turned a malformed id lookup into a read of the whole server list that could answer with another server's details.
+* `gigahost_server` - post-deploy details are read directly by id, closing a window where a transient server-list gap left them silently empty.
+
 ## 0.4.0 (June 12, 2026)
 
 FEATURES:
