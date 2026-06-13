@@ -1,3 +1,9 @@
+## 0.5.1 (Unreleased)
+
+BUG FIXES:
+
+* `gigahost_server` - `os_id` is refreshed on every read, so an OS reinstalled outside Terraform updates it instead of leaving a stale value (it previously only updated the nested `os` object).
+
 ## 0.5.0 (June 13, 2026)
 
 BREAKING CHANGES:
