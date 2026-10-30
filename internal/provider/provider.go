@@ -120,6 +120,9 @@ func (p *GigahostProvider) Resources(_ context.Context) []func() resource.Resour
 		NewSSHKeyResource,
 		NewServerResource,
 		NewServerReverseResource,
+		NewDNSZoneNameserversResource,
+		NewDNSZoneDNSSECResource,
+		NewDNSZoneDSRecordsResource,
 	}
 }
 
