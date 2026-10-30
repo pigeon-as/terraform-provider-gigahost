@@ -48,6 +48,7 @@ type DnsZone struct {
 	ZoneActive    flexBool `json:"zone_active"`
 	ZoneProtected flexBool `json:"zone_protected"`
 	ExternalDNS   flexBool `json:"external_dns"`
+	ZoneMasters   string   `json:"zone_masters"`
 }
 
 type createZoneRequest struct {

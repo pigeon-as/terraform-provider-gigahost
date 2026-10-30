@@ -3,6 +3,10 @@
 FEATURES:
 
 * `gigahost_server_reverse` - add a resource for managing PTR/reverse DNS on a server address.
+* `gigahost_dns_zone_nameservers` - add a resource for managing the registry nameservers of a registered domain.
+* `gigahost_dns_zone_dnssec` - add a resource for enabling DNSSEC on a registered domain.
+* `gigahost_dns_zone_ds_records` - add a resource for submitting external DS records to the registry.
+* `gigahost_dns_zone_secondary` - add a resource for secondary (slave) zones, using the `POST /dns/zones/secondary` endpoint that the Gigahost panel uses (it is not in the public API documentation).
 
 BUG FIXES:
 
