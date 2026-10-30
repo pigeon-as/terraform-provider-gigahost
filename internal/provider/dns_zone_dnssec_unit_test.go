@@ -250,3 +250,55 @@ func TestDSRecordsResourceCreateAndDelete(t *testing.T) {
 		t.Fatalf("unexpected delete request: %+v", got)
 	}
 }
+
+func TestSecondaryZoneResourceLifecycle(t *testing.T) {
+	ctx := context.Background()
+	c, api := newMockClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/dns/zones/secondary":
+			_, _ = io.WriteString(w, `{"meta":{"status":200}}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/dns/zones":
+			_, _ = io.WriteString(w, `{"meta":{"status":200},"data":[{"zone_id":"7","zone_name":"example.com","zone_type":"SLAVE","zone_masters":"192.0.2.9"}]}`)
+		case r.Method == http.MethodDelete && r.URL.Path == "/dns/zones/7":
+			_, _ = io.WriteString(w, `{"meta":{"status":200}}`)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	})
+	r := &dnsZoneSecondaryResource{client: c}
+	sch := schemaOf(t, r).Schema
+	objType := sch.Type().TerraformType(ctx)
+	plan := tfsdk.Plan{Schema: sch, Raw: tftypes.NewValue(objType, map[string]tftypes.Value{
+		"zone_id":   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"zone_name": tftypes.NewValue(tftypes.String, "example.com"),
+		"masters":   stringSet("192.0.2.1"),
+	})}
+	createResp := resource.CreateResponse{State: tfsdk.State{Schema: sch, Raw: tftypes.NewValue(objType, nil)}}
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, &createResp)
+	if createResp.Diagnostics.HasError() {
+		t.Fatalf("Create: %v", createResp.Diagnostics)
+	}
+	var m dnsZoneSecondaryResourceModel
+	createResp.State.Get(ctx, &m)
+	if m.ZoneID.ValueString() != "7" {
+		t.Fatalf("zone_id = %v", m.ZoneID)
+	}
+
+	// Masters changed out of band are reported as drift.
+	readResp := resource.ReadResponse{State: createResp.State}
+	r.Read(ctx, resource.ReadRequest{State: createResp.State}, &readResp)
+	if readResp.Diagnostics.HasError() {
+		t.Fatalf("Read: %v", readResp.Diagnostics)
+	}
+	readResp.State.Get(ctx, &m)
+	var masters []string
+	m.Masters.ElementsAs(ctx, &masters, false)
+	if len(masters) != 1 || masters[0] != "192.0.2.9" {
+		t.Fatalf("masters = %v", masters)
+	}
+
+	r.Delete(ctx, resource.DeleteRequest{State: readResp.State}, &resource.DeleteResponse{})
+	if got := api.last(); got.Method != http.MethodDelete || got.Path != "/dns/zones/7" {
+		t.Fatalf("unexpected delete request: %+v", got)
+	}
+}

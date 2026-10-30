@@ -152,3 +152,38 @@ func TestSubmitExternalDSRecords(t *testing.T) {
 		t.Error("expected an error for an empty record set")
 	}
 }
+
+func TestCreateSecondaryZone(t *testing.T) {
+	var created bool
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/dns/zones/secondary":
+			var body createSecondaryZoneRequest
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+			if body.ZoneName != "example.com" || !reflect.DeepEqual(body.Masters, []string{"192.0.2.1", "192.0.2.2"}) {
+				t.Fatalf("body = %+v", body)
+			}
+			created = true
+			_, _ = io.WriteString(w, `{"meta":{"status":200}}`)
+		case r.Method == http.MethodGet && r.URL.Path == "/dns/zones":
+			_, _ = io.WriteString(w, `{"meta":{"status":200},"data":[{"zone_id":"7","zone_name":"example.com","zone_type":"SLAVE","zone_masters":"192.0.2.1,192.0.2.2"}]}`)
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	})
+	z, err := c.CreateSecondaryZone(context.Background(), "example.com", []string{"192.0.2.1", "192.0.2.2"})
+	if err != nil {
+		t.Fatalf("CreateSecondaryZone: %v", err)
+	}
+	if !created || z.ZoneID != "7" || z.ZoneType != "SLAVE" {
+		t.Fatalf("zone = %+v", z)
+	}
+	if got := SplitMasters(z.ZoneMasters); !reflect.DeepEqual(got, []string{"192.0.2.1", "192.0.2.2"}) {
+		t.Fatalf("SplitMasters = %v", got)
+	}
+	if _, err := c.CreateSecondaryZone(context.Background(), "example.com", nil); err == nil {
+		t.Error("expected an error without masters")
+	}
+}
